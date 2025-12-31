@@ -59,6 +59,14 @@ Authors of the OpenMP code:
 #include "../common/npb-CPP.hpp"
 #include "npbparams.hpp"
 
+#ifdef USING_TASKLOOP
+#define CFLAG (CS5" -DUSING_TASKLOOP")
+#define CXXFLAG (CS6" -DUSING_TASKLOOP")
+#else
+#define CFLAG (CS5)
+#define CXXFLAG (CS6)
+#endif
+
 /*
  * ---------------------------------------------------------------------
  * note: please observe that in the routine conj_grad three 
@@ -468,8 +476,8 @@ int main(int argc, char **argv){
 			(char*)CS2,
 			(char*)CS3,
 			(char*)CS4,
-			(char*)CS5,
-			(char*)CS6,
+			(char*)CFLAG,
+			(char*)CXXFLAG,
 			(char*)CS7);
 
 	/*
@@ -573,10 +581,14 @@ static void conj_grad(int colidx[],
 			rho = 0.0;
 		}
 
-		// #pragma omp for nowait
+		
+		#ifdef USING_TASKLOOP
 		#pragma omp single 
 		{
 			#pragma omp taskloop
+		#else
+	        #pragma omp for nowait
+		#endif
 			for(j = 0; j < lastrow - firstrow + 1; j++){
 				suml = 0.0;
 				for(k = rowstr[j]; k < rowstr[j+1]; k++){
@@ -584,7 +596,9 @@ static void conj_grad(int colidx[],
 				}
 				q[j] = suml;
 			}
+		#ifdef USING_TASKLOOP
 		}
+		#endif
 
 
 		/*
@@ -651,10 +665,13 @@ static void conj_grad(int colidx[],
 	 * the partition submatrix-vector multiply
 	 * ---------------------------------------------------------------------
 	 */
-	// #pragma omp for nowait
+	#ifdef USING_TASKLOOP
 	#pragma omp single 
 	{
 		#pragma omp taskloop
+	#else
+		#pragma omp for nowait
+	#endif
 		for(j = 0; j < lastrow - firstrow + 1; j++){
 				suml = 0.0;
 				for(k = rowstr[j]; k < rowstr[j+1]; k++){
@@ -662,7 +679,9 @@ static void conj_grad(int colidx[],
 				}
 				r[j] = suml;
 			}
+	#ifdef USING_TASKLOOP
 	}
+	#endif
 	
 
 	/*

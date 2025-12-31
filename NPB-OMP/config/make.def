@@ -52,6 +52,9 @@ C_INC = -I../common
 #---------------------------------------------------------------------------
 CFLAGS	= -O3 -fopenmp -mcmodel=medium
 
+ifeq ($(USING_TASKLOOP),1)
+    CFLAGS += -DUSING_TASKLOOP
+endif
 
 #---------------------------------------------------------------------------
 # Global *link time* flags. Flags for increasing maximum executable 
