@@ -573,14 +573,19 @@ static void conj_grad(int colidx[],
 			rho = 0.0;
 		}
 
-		#pragma omp for nowait
-		for(j = 0; j < lastrow - firstrow + 1; j++){
-			suml = 0.0;
-			for(k = rowstr[j]; k < rowstr[j+1]; k++){
-				suml += a[k]*p[colidx[k]];
+		// #pragma omp for nowait
+		#pragma omp single 
+		{
+			#pragma omp taskloop
+			for(j = 0; j < lastrow - firstrow + 1; j++){
+				suml = 0.0;
+				for(k = rowstr[j]; k < rowstr[j+1]; k++){
+					suml += a[k]*p[colidx[k]];
+				}
+				q[j] = suml;
 			}
-			q[j] = suml;
 		}
+
 
 		/*
 		 * --------------------------------------------------------------------
@@ -646,14 +651,19 @@ static void conj_grad(int colidx[],
 	 * the partition submatrix-vector multiply
 	 * ---------------------------------------------------------------------
 	 */
-	#pragma omp for nowait
-	for(j = 0; j < lastrow - firstrow + 1; j++){
-		suml = 0.0;
-		for(k = rowstr[j]; k < rowstr[j+1]; k++){
-			suml += a[k]*z[colidx[k]];
-		}
-		r[j] = suml;
+	// #pragma omp for nowait
+	#pragma omp single 
+	{
+		#pragma omp taskloop
+		for(j = 0; j < lastrow - firstrow + 1; j++){
+				suml = 0.0;
+				for(k = rowstr[j]; k < rowstr[j+1]; k++){
+					suml += a[k]*z[colidx[k]];
+				}
+				r[j] = suml;
+			}
 	}
+	
 
 	/*
 	 * ---------------------------------------------------------------------
