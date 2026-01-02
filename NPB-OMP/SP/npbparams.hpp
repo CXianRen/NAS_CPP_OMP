@@ -4,13 +4,11 @@
 					  c  It sets the number of processors and the class_npb of the NPB
 					  c  in this directory. Do not modify it by hand.
 					 */
-#define NA     1500000
-#define NONZER 21
-#define NITER  100
-#define SHIFT  500.0
-#define RCOND  1.0e-1
+#define	PROBLEM_SIZE	408
+#define	NITER_DEFAULT	500
+#define	DT_DEFAULT	0.00030
 #define	CONVERTDOUBLE	FALSE
-#define COMPILETIME "31 Dec 2025"
+#define COMPILETIME "02 Jan 2026"
 #define NPBVERSION "4.1"
 #define LIBVERSION "202011"
 #define COMPILERVERSION "18.1.8"

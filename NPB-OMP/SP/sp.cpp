@@ -59,6 +59,14 @@ Authors of the OpenMP code:
 #include "../common/npb-CPP.hpp"
 #include "npbparams.hpp"
 
+#ifdef USING_TASKLOOP
+#define CFLAG (CS5" -DUSING_TASKLOOP")
+#define CXXFLAG (CS6" -DUSING_TASKLOOP")
+#else
+#define CFLAG (CS5)
+#define CXXFLAG (CS6)
+#endif
+
 #define IMAX PROBLEM_SIZE
 #define JMAX PROBLEM_SIZE
 #define KMAX PROBLEM_SIZE
@@ -293,8 +301,8 @@ int main(int argc, char* argv[]){
 			(char*)CS2,
 			(char*)CS3,
 			(char*)CS4,
-			(char*)CS5,
-			(char*)CS6,
+			(char*)CFLAG,
+			(char*)CXXFLAG,
 			(char*)"(none)");
 	/*
 	 * ---------------------------------------------------------------------
@@ -589,7 +597,14 @@ void compute_rhs(){
 	 * ---------------------------------------------------------------------
 	 */
 	if(timeron && thread_id==0){timer_start(T_RHSZ);}
+
+	#ifdef USING_TASKLOOP
+	#pragma omp single
+	{
+	#pragma omp taskloop
+	#else
 	#pragma omp for
+	#endif
 	for(k=1; k<=nz2; k++){
 		for(j=1; j<=ny2; j++){
 			for(i=1; i<=nx2; i++){
@@ -625,13 +640,22 @@ void compute_rhs(){
 			}
 		}
 	}
+	#ifdef USING_TASKLOOP
+	}
+	#endif
 	/*
 	 * ---------------------------------------------------------------------
 	 * add fourth order zeta-direction dissipation                
 	 * ---------------------------------------------------------------------
 	 */
 	k=1;
+	#ifdef USING_TASKLOOP
+	#pragma omp single
+	{
+	#pragma omp taskloop
+	#else
 	#pragma omp for
+	#endif
 	for(j=1; j<=ny2; j++){
 		for(i=1; i<=nx2; i++){
 			for(m=0; m<5; m++){
@@ -640,8 +664,19 @@ void compute_rhs(){
 			}
 		}
 	}
+	#ifdef USING_TASKLOOP
+	}
+	#endif
+
 	k=2;
+	// #pragma omp for
+	#ifdef USING_TASKLOOP
+	#pragma omp single
+	{
+	#pragma omp taskloop
+	#else
 	#pragma omp for
+	#endif
 	for(j=1; j<=ny2; j++){
 		for(i=1; i<=nx2; i++){
 			for(m=0; m<5; m++){
@@ -651,7 +686,17 @@ void compute_rhs(){
 			}
 		}
 	}
+	#ifdef USING_TASKLOOP
+	}
+	#endif
+
+	#ifdef USING_TASKLOOP
+	#pragma omp single
+	{
+	#pragma omp taskloop
+	#else
 	#pragma omp for
+	#endif
 	for(k=3; k<=nz2-2; k++){
 		for(j=1; j<=ny2; j++){
 			for(i=1; i<=nx2; i++){
@@ -664,8 +709,18 @@ void compute_rhs(){
 			}
 		}
 	}
+	#ifdef USING_TASKLOOP
+	}
+	#endif
+
 	k=nz2-1;
+	#ifdef USING_TASKLOOP
+	#pragma omp single
+	{
+	#pragma omp taskloop
+	#else
 	#pragma omp for
+	#endif
 	for(j=1; j<=ny2; j++){
 		for(i=1; i<=nx2; i++){
 			for(m=0; m<5; m++){
@@ -675,8 +730,19 @@ void compute_rhs(){
 			}
 		}
 	}
+	#ifdef USING_TASKLOOP
+	}
+	#endif
+
 	k=nz2;
+	// #pragma omp for
+	#ifdef USING_TASKLOOP
+	#pragma omp single
+	{
+	#pragma omp taskloop
+	#else
 	#pragma omp for
+	#endif
 	for(j=1; j<=ny2; j++){
 		for(i=1; i<=nx2; i++){
 			for(m=0; m<5; m++){
@@ -685,7 +751,12 @@ void compute_rhs(){
 			}
 		}
 	}
+	#ifdef USING_TASKLOOP
+	}
+	#endif
+
 	if(timeron && thread_id==0){timer_stop(T_RHSZ);}
+	
 	#pragma omp for
 	for(k=1; k<=nz2; k++){
 		for(j=1; j<=ny2; j++){
