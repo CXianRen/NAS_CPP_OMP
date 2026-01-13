@@ -598,162 +598,124 @@ void compute_rhs(){
 	 */
 	if(timeron && thread_id==0){timer_start(T_RHSZ);}
 
-	#ifdef USING_TASKLOOP
 	#pragma omp single
 	{
-	#pragma omp taskloop
-	#else
-	#pragma omp for
-	#endif
-	for(k=1; k<=nz2; k++){
-		for(j=1; j<=ny2; j++){
-			for(i=1; i<=nx2; i++){
-				wijk=ws[k][j][i];
-				wp1=ws[k+1][j][i];
-				wm1=ws[k-1][j][i];
-				rhs[k][j][i][0]=rhs[k][j][i][0]+dz1tz1* 
-					(u[k+1][j][i][0]-2.0*u[k][j][i][0]+u[k-1][j][i][0])-
-					tz2*(u[k+1][j][i][3]-u[k-1][j][i][3]);
-				rhs[k][j][i][1]=rhs[k][j][i][1]+dz2tz1* 
-					(u[k+1][j][i][1]-2.0*u[k][j][i][1]+u[k-1][j][i][1])+
-					zzcon2*(us[k+1][j][i]-2.0*us[k][j][i]+us[k-1][j][i])-
-					tz2*(u[k+1][j][i][1]*wp1-u[k-1][j][i][1]*wm1);
-				rhs[k][j][i][2]=rhs[k][j][i][2]+dz3tz1* 
-					(u[k+1][j][i][2]-2.0*u[k][j][i][2]+u[k-1][j][i][2])+
-					zzcon2*(vs[k+1][j][i]-2.0*vs[k][j][i]+vs[k-1][j][i])-
-					tz2*(u[k+1][j][i][2]*wp1-u[k-1][j][i][2]*wm1);
-				rhs[k][j][i][3]=rhs[k][j][i][3]+dz4tz1* 
-					(u[k+1][j][i][3]-2.0*u[k][j][i][3]+u[k-1][j][i][3])+
-					zzcon2*con43*(wp1-2.0*wijk+wm1)-
-					tz2*(u[k+1][j][i][3]*wp1-u[k-1][j][i][3]*wm1+
-							(u[k+1][j][i][4]-square[k+1][j][i]- 
-							 u[k-1][j][i][4]+square[k-1][j][i])*c2);
-				rhs[k][j][i][4]=rhs[k][j][i][4]+dz5tz1* 
-					(u[k+1][j][i][4]-2.0*u[k][j][i][4]+u[k-1][j][i][4])+
-					zzcon3*(qs[k+1][j][i]-2.0*qs[k][j][i]+qs[k-1][j][i])+
-					zzcon4*(wp1*wp1-2.0*wijk*wijk+wm1*wm1)+
-					zzcon5*(u[k+1][j][i][4]*rho_i[k+1][j][i]- 
-							2.0*u[k][j][i][4]*rho_i[k][j][i]+
-							u[k-1][j][i][4]*rho_i[k-1][j][i])-
-					tz2*((c1*u[k+1][j][i][4]-c2*square[k+1][j][i])*wp1-
-							(c1*u[k-1][j][i][4]-c2*square[k-1][j][i])*wm1);
+		#pragma omp taskloop private(j, wp1, wm1, i, wijk)
+		for (k=1; k<=nz2; k++) {
+			for(j=1; j<=ny2; j++){
+				for(i=1; i<=nx2; i++){
+					wijk=ws[k][j][i];
+					wp1=ws[k+1][j][i];
+					wm1=ws[k-1][j][i];
+					rhs[k][j][i][0]=rhs[k][j][i][0]+dz1tz1* 
+						(u[k+1][j][i][0]-2.0*u[k][j][i][0]+u[k-1][j][i][0])-
+						tz2*(u[k+1][j][i][3]-u[k-1][j][i][3]);
+					rhs[k][j][i][1]=rhs[k][j][i][1]+dz2tz1* 
+						(u[k+1][j][i][1]-2.0*u[k][j][i][1]+u[k-1][j][i][1])+
+						zzcon2*(us[k+1][j][i]-2.0*us[k][j][i]+us[k-1][j][i])-
+						tz2*(u[k+1][j][i][1]*wp1-u[k-1][j][i][1]*wm1);
+					rhs[k][j][i][2]=rhs[k][j][i][2]+dz3tz1* 
+						(u[k+1][j][i][2]-2.0*u[k][j][i][2]+u[k-1][j][i][2])+
+						zzcon2*(vs[k+1][j][i]-2.0*vs[k][j][i]+vs[k-1][j][i])-
+						tz2*(u[k+1][j][i][2]*wp1-u[k-1][j][i][2]*wm1);
+					rhs[k][j][i][3]=rhs[k][j][i][3]+dz4tz1* 
+						(u[k+1][j][i][3]-2.0*u[k][j][i][3]+u[k-1][j][i][3])+
+						zzcon2*con43*(wp1-2.0*wijk+wm1)-
+						tz2*(u[k+1][j][i][3]*wp1-u[k-1][j][i][3]*wm1+
+								(u[k+1][j][i][4]-square[k+1][j][i]- 
+								 u[k-1][j][i][4]+square[k-1][j][i])*c2);
+					rhs[k][j][i][4]=rhs[k][j][i][4]+dz5tz1* 
+						(u[k+1][j][i][4]-2.0*u[k][j][i][4]+u[k-1][j][i][4])+
+						zzcon3*(qs[k+1][j][i]-2.0*qs[k][j][i]+qs[k-1][j][i])+
+						zzcon4*(wp1*wp1-2.0*wijk*wijk+wm1*wm1)+
+						zzcon5*(u[k+1][j][i][4]*rho_i[k+1][j][i]- 
+								2.0*u[k][j][i][4]*rho_i[k][j][i]+
+								u[k-1][j][i][4]*rho_i[k-1][j][i])-
+						tz2*((c1*u[k+1][j][i][4]-c2*square[k+1][j][i])*wp1-
+								(c1*u[k-1][j][i][4]-c2*square[k-1][j][i])*wm1);
+				}
 			}
 		}
 	}
-	#ifdef USING_TASKLOOP
-	}
-	#endif
 	/*
 	 * ---------------------------------------------------------------------
 	 * add fourth order zeta-direction dissipation                
 	 * ---------------------------------------------------------------------
 	 */
 	k=1;
-	#ifdef USING_TASKLOOP
 	#pragma omp single
 	{
-	#pragma omp taskloop
-	#else
-	#pragma omp for
-	#endif
-	for(j=1; j<=ny2; j++){
-		for(i=1; i<=nx2; i++){
-			for(m=0; m<5; m++){
-				rhs[k][j][i][m]=rhs[k][j][i][m]-dssp* 
-					(5.0*u[k][j][i][m]-4.0*u[k+1][j][i][m]+u[k+2][j][i][m]);
-			}
-		}
-	}
-	#ifdef USING_TASKLOOP
-	}
-	#endif
-
-	k=2;
-	// #pragma omp for
-	#ifdef USING_TASKLOOP
-	#pragma omp single
-	{
-	#pragma omp taskloop
-	#else
-	#pragma omp for
-	#endif
-	for(j=1; j<=ny2; j++){
-		for(i=1; i<=nx2; i++){
-			for(m=0; m<5; m++){
-				rhs[k][j][i][m]=rhs[k][j][i][m]-dssp* 
-					(-4.0*u[k-1][j][i][m]+6.0*u[k][j][i][m]-
-					 4.0*u[k+1][j][i][m]+u[k+2][j][i][m]);
-			}
-		}
-	}
-	#ifdef USING_TASKLOOP
-	}
-	#endif
-
-	#ifdef USING_TASKLOOP
-	#pragma omp single
-	{
-	#pragma omp taskloop
-	#else
-	#pragma omp for
-	#endif
-	for(k=3; k<=nz2-2; k++){
-		for(j=1; j<=ny2; j++){
+		#pragma omp taskloop private(i, m)
+		for (j=1; j<=ny2; j++) {
 			for(i=1; i<=nx2; i++){
 				for(m=0; m<5; m++){
 					rhs[k][j][i][m]=rhs[k][j][i][m]-dssp* 
-						(u[k-2][j][i][m]-4.0*u[k-1][j][i][m]+ 
-						 6.0*u[k][j][i][m]-4.0*u[k+1][j][i][m]+ 
-						 u[k+2][j][i][m]);
+						(5.0*u[k][j][i][m]-4.0*u[k+1][j][i][m]+u[k+2][j][i][m]);
 				}
 			}
 		}
 	}
-	#ifdef USING_TASKLOOP
+
+	k=2;
+	#pragma omp single
+	{
+		#pragma omp taskloop private(i, m)
+		for (j=1; j<=ny2; j++) {
+			for(i=1; i<=nx2; i++){
+				for(m=0; m<5; m++){
+					rhs[k][j][i][m]=rhs[k][j][i][m]-dssp* 
+						(-4.0*u[k-1][j][i][m]+6.0*u[k][j][i][m]-
+						 4.0*u[k+1][j][i][m]+u[k+2][j][i][m]);
+				}
+			}
+		}
 	}
-	#endif
+
+	#pragma omp single
+	{
+		#pragma omp taskloop private(j, i, m)
+		for (k=3; k<=nz2-2; k++) {
+			for(j=1; j<=ny2; j++){
+				for(i=1; i<=nx2; i++){
+					for(m=0; m<5; m++){
+						rhs[k][j][i][m]=rhs[k][j][i][m]-dssp* 
+							(u[k-2][j][i][m]-4.0*u[k-1][j][i][m]+ 
+							 6.0*u[k][j][i][m]-4.0*u[k+1][j][i][m]+ 
+							 u[k+2][j][i][m]);
+					}
+				}
+			}
+		}
+	}
 
 	k=nz2-1;
-	#ifdef USING_TASKLOOP
 	#pragma omp single
 	{
-	#pragma omp taskloop
-	#else
-	#pragma omp for
-	#endif
-	for(j=1; j<=ny2; j++){
-		for(i=1; i<=nx2; i++){
-			for(m=0; m<5; m++){
-				rhs[k][j][i][m]=rhs[k][j][i][m]-dssp*
-					(u[k-2][j][i][m]-4.0*u[k-1][j][i][m]+ 
-					 6.0*u[k][j][i][m]-4.0*u[k+1][j][i][m]);
+		#pragma omp taskloop private(i, m)
+		for (j=1; j<=ny2; j++) {
+			for(i=1; i<=nx2; i++){
+				for(m=0; m<5; m++){
+					rhs[k][j][i][m]=rhs[k][j][i][m]-dssp*
+						(u[k-2][j][i][m]-4.0*u[k-1][j][i][m]+ 
+						 6.0*u[k][j][i][m]-4.0*u[k+1][j][i][m]);
+				}
 			}
 		}
 	}
-	#ifdef USING_TASKLOOP
-	}
-	#endif
 
 	k=nz2;
-	// #pragma omp for
-	#ifdef USING_TASKLOOP
 	#pragma omp single
 	{
-	#pragma omp taskloop
-	#else
-	#pragma omp for
-	#endif
-	for(j=1; j<=ny2; j++){
-		for(i=1; i<=nx2; i++){
-			for(m=0; m<5; m++){
-				rhs[k][j][i][m]=rhs[k][j][i][m]-dssp*
-					(u[k-2][j][i][m]-4.0*u[k-1][j][i][m]+5.0*u[k][j][i][m]);
+		#pragma omp taskloop private(i, m)
+		for (j=1; j<=ny2; j++) {
+			for(i=1; i<=nx2; i++){
+				for(m=0; m<5; m++){
+					rhs[k][j][i][m]=rhs[k][j][i][m]-dssp*
+						(u[k-2][j][i][m]-4.0*u[k-1][j][i][m]+5.0*u[k][j][i][m]);
+				}
 			}
 		}
 	}
-	#ifdef USING_TASKLOOP
-	}
-	#endif
 
 	if(timeron && thread_id==0){timer_stop(T_RHSZ);}
 	
