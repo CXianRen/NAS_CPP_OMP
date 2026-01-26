@@ -1,2 +1,6 @@
 *.o
 
+bin/*
+sys/setparams
+
+**/npbparams.hpp
