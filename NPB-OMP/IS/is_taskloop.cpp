@@ -632,7 +632,7 @@ void rank(int iteration){
 		/* a dynamic schedule should improve load balance, thus, performance */
 		#pragma omp single
 		{
-			#pragma omp taskloop private(k2, k, m, key_buff_ptr, k1)
+			#pragma omp taskloop private(k1, k2, k, m)
 			for ( i=0; i< NUM_BUCKETS; i++ ) {
 				/* Clear the work array section associated with each bucket */
 				k1 = i * num_bucket_keys;

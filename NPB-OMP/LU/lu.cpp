@@ -2204,7 +2204,10 @@ void rhs(){
 	double u21km1, u31km1, u41km1, u51km1;
 	double flux[ISIZ1][5];
 
-	if(timeron){timer_start(T_RHS);}
+	if(timeron){
+		#pragma omp master
+		timer_start(T_RHS);
+	}
 	#pragma omp for
 	for(k=0; k<nz; k++){
 		for(j=0; j<ny; j++){
@@ -2221,7 +2224,10 @@ void rhs(){
 			}
 		}
 	}
-	if(timeron){timer_start(T_RHSX);}
+	if(timeron){
+		#pragma omp master
+		timer_start(T_RHSX);
+	}
 	/*
 	 * ---------------------------------------------------------------------
 	 * xi-direction flux differences
@@ -2331,8 +2337,14 @@ void rhs(){
 			}
 		}
 	}
-	if(timeron){timer_stop(T_RHSX);}
-	if(timeron){timer_start(T_RHSY);}
+	if(timeron){
+		#pragma omp master
+		timer_stop(T_RHSX);
+	}
+	if(timeron){
+		#pragma omp master
+		timer_start(T_RHSY);
+	}
 	/*
 	 * ---------------------------------------------------------------------
 	 * eta-direction flux differences
@@ -2448,8 +2460,14 @@ void rhs(){
 			}
 		}
 	}
-	if(timeron){timer_stop(T_RHSY);}
-	if(timeron){timer_start(T_RHSZ);}
+	if(timeron){
+		#pragma omp master
+		timer_stop(T_RHSY);
+	}
+	if(timeron){
+		#pragma omp master
+		timer_start(T_RHSZ);
+	}
 	/*
 	 * ---------------------------------------------------------------------
 	 * zeta-direction flux differences
@@ -2567,8 +2585,14 @@ void rhs(){
 			}
 		}
 	}
-	if(timeron){timer_stop(T_RHSZ);}
-	if(timeron){timer_stop(T_RHS);}
+	if(timeron){
+		#pragma omp master
+		timer_stop(T_RHSZ);
+	}
+	if(timeron){
+		#pragma omp master
+		timer_stop(T_RHS);
+	}
 }
 
 /*
