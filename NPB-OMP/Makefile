@@ -2,41 +2,45 @@ SHELL=/bin/sh
 CLASS=S
 SFILE=config/suite.def
 
+VERSION_TAIL=""
+
 default: header
 	@ $(SHELL) sys/print_instructions
 
-	       
+
+all: BT SP LU MG FT IS CG EP
+
 BT: bt
 bt: header
-	cd BT; $(MAKE) CLASS=$(CLASS)
+	cd BT; $(MAKE) CLASS=$(CLASS) VERSION_TAIL=$(VERSION_TAIL)
 		       
 SP: sp		       
 sp: header	       
-	cd SP; $(MAKE) CLASS=$(CLASS)
+	cd SP; $(MAKE) CLASS=$(CLASS) VERSION_TAIL=$(VERSION_TAIL)
 		       
 LU: lu		       
 lu: header	       
-	cd LU; $(MAKE) CLASS=$(CLASS)
+	cd LU; $(MAKE) CLASS=$(CLASS) VERSION_TAIL=$(VERSION_TAIL)
 		       
 MG: mg		       
 mg: header	       
-	cd MG; $(MAKE) CLASS=$(CLASS)
+	cd MG; $(MAKE) CLASS=$(CLASS) VERSION_TAIL=$(VERSION_TAIL)
 		       
 FT: ft		       
 ft: header	       
-	cd FT; $(MAKE) CLASS=$(CLASS)
+	cd FT; $(MAKE) CLASS=$(CLASS) VERSION_TAIL=$(VERSION_TAIL)
 		       
 IS: is		       
 is: header	       
-	cd IS; $(MAKE) CLASS=$(CLASS)
+	cd IS; $(MAKE) CLASS=$(CLASS) VERSION_TAIL=$(VERSION_TAIL)
 		       
 CG: cg		       
 cg: header	       
-	cd CG; $(MAKE) CLASS=$(CLASS)
+	cd CG; $(MAKE) CLASS=$(CLASS) VERSION_TAIL=$(VERSION_TAIL)
 		       
 EP: ep		       
 ep: header	       
-	cd EP; $(MAKE) CLASS=$(CLASS)
+	cd EP; $(MAKE) CLASS=$(CLASS) VERSION_TAIL=$(VERSION_TAIL)
 
 
 # Awk script courtesy cmg@cray.com
@@ -53,6 +57,7 @@ clean:
 	- rm -f core 
 	- rm -f *~ */core */*~ */*.o */npbparams.hpp */*.obj */*.exe
 	- rm -f sys/setparams sys/makesuite sys/setparams.hpp
+	- rm -f bin/*
 
 cleanall: clean
 	- rm -r bin/*

@@ -13,8 +13,8 @@ ${PROGRAM}: config ${OBJS}
 	${CLINK} ${CLINKFLAGS} -o ${PROGRAM} ${OBJS} ${C_LIB}
 
 
-is.o:		is.cpp npbparams.hpp
-	${CCOMPILE} is.cpp
+is.o:		is${VERSION_TAIL}.cpp npbparams.hpp
+	${CCOMPILE} is${VERSION_TAIL}.cpp -o is.o
 
 clean:
 	- rm -f *.o *~ 

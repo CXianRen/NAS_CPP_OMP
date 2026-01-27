@@ -1,3 +1,8 @@
+# New support
+Add make all  
+Add make VERSION_TAIL="_taskloop" to select different version of code.
+
+
 # The NAS Parallel Benchmarks for evaluating C++ parallel programming frameworks on shared-memory architectures
 
 The NPB's Fortran codes were carefully ported to **C++** and are fully compliant with the **NPB3.4.1** version ([NPB official webpage](https://www.nas.nasa.gov/publications/npb.html)). Our [paper](https://doi.org/10.1016/j.future.2021.07.021) contains abundant information on how the porting was conducted and discusses the outcome performance we obtained with **NPB-CPP** on different machines (Intel Xeon, AMD Epyc, and IBM Power8) and compilers (GCC, ICC, and Clang). Results showed that we achieved similar performance with **NPB-CPP** compared to the original **NPB**. **You can use our papers, along with the official reports, as a guide to assess performance using the NPB suite**.

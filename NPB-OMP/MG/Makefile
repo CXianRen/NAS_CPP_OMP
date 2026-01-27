@@ -12,8 +12,8 @@ include ../sys/make.common
 ${PROGRAM}: config ${OBJS}
 	${CLINK} ${CLINKFLAGS} -o ${PROGRAM} ${OBJS} ${C_LIB}
 
-mg.o:		mg.cpp npbparams.hpp 
-	${CCOMPILE} mg.cpp
+mg.o:		mg${VERSION_TAIL}.cpp npbparams.hpp 
+	${CCOMPILE} mg${VERSION_TAIL}.cpp -o mg.o
 
 clean:
 	- rm -f *.o *~ 

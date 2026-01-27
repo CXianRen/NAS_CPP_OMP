@@ -12,8 +12,8 @@ include ../sys/make.common
 ${PROGRAM}: config ${OBJS}
 	${CLINK} ${CLINKFLAGS} -o ${PROGRAM} ${OBJS} ${C_LIB}
 
-lu.o:		lu.cpp npbparams.hpp
-	${CCOMPILE} lu.cpp
+lu.o:		lu${VERSION_TAIL}.cpp npbparams.hpp
+	${CCOMPILE} lu${VERSION_TAIL}.cpp -o lu.o
 
 clean:
 	- /bin/rm -f npbparams.hpp

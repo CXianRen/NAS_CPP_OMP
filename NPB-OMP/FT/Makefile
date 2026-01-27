@@ -12,8 +12,8 @@ include ../sys/make.common
 ${PROGRAM}: config ${OBJS}
 	${CLINK} ${CLINKFLAGS} -o ${PROGRAM} ${OBJS} ${C_LIB}
 
-ft.o:             ft.cpp npbparams.hpp
-	${CCOMPILE} ft.cpp
+ft.o:             ft${VERSION_TAIL}.cpp npbparams.hpp
+	${CCOMPILE} ft${VERSION_TAIL}.cpp -o ft.o
 
 clean:
 	- rm -f *.o *~ mputil*
