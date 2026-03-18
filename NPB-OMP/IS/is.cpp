@@ -629,7 +629,8 @@ void rank(int iteration){
 		/* each bucket, which can be done in parallel.  Because the distribution */
 		/* of the number of keys in the buckets is Gaussian, the use of */
 		/* a dynamic schedule should improve load balance, thus, performance */
-		#pragma omp for schedule(dynamic)
+		// #pragma omp for schedule(dynamic)
+		#pragma omp for
 		for( i=0; i< NUM_BUCKETS; i++ ) {
 			/* Clear the work array section associated with each bucket */
 			k1 = i * num_bucket_keys;

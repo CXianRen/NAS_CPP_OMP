@@ -253,9 +253,9 @@ int main(int argc, char* argv[]){
 	for(i=1;i<=T_LAST;i++){timer_clear(i);}
 	timer_start(1);
 
-	struct timeval tv1;
-    gettimeofday(&tv1, NULL);
-    long long start = tv1.tv_sec * 1000LL + tv1.tv_usec / 1000;
+	// struct timeval tv1;
+    // gettimeofday(&tv1, NULL);
+    // long long start = tv1.tv_sec * 1000LL + tv1.tv_usec / 1000;
 
 	#pragma omp parallel firstprivate(niter) private(step)
   	{
@@ -267,9 +267,9 @@ int main(int argc, char* argv[]){
 			adi();
 		}
 	}
-	gettimeofday(&tv1, NULL);
-    long long end = tv1.tv_sec * 1000LL + tv1.tv_usec / 1000;
-	printf("%lld\t%lld\t%.3f\n", start, end, (end - start) / 1000.0);
+	// gettimeofday(&tv1, NULL);
+    // long long end = tv1.tv_sec * 1000LL + tv1.tv_usec / 1000;
+	// printf("%lld\t%lld\t%.3f\n", start, end, (end - start) / 1000.0);
 	
 	timer_stop(1);
 	tmax=timer_read(1);

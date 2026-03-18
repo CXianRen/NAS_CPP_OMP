@@ -286,9 +286,9 @@ int main(int argc, char **argv){
 
 	fft_init(MAXDIM);
 
-	struct timeval tv1;
-    gettimeofday(&tv1, NULL);
-    long long start = tv1.tv_sec * 1000LL + tv1.tv_usec / 1000;
+	// struct timeval tv1;
+    // gettimeofday(&tv1, NULL);
+    // long long start = tv1.tv_sec * 1000LL + tv1.tv_usec / 1000;
 
 	#pragma omp parallel private(iter) firstprivate(niter)
     {
@@ -346,9 +346,9 @@ int main(int argc, char **argv){
 		}
 	} /* end parallel */
 	
-	gettimeofday(&tv1, NULL);
-    long long end = tv1.tv_sec * 1000LL + tv1.tv_usec / 1000;
-	printf("%lld\t%lld\t%.3f\n", start, end, (end - start) / 1000.0);
+	// gettimeofday(&tv1, NULL);
+    // long long end = tv1.tv_sec * 1000LL + tv1.tv_usec / 1000;
+	// printf("%lld\t%lld\t%.3f\n", start, end, (end - start) / 1000.0);
 
 	verify(NX, NY, NZ, niter, &verified, &class_npb);
 

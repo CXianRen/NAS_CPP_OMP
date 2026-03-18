@@ -255,16 +255,16 @@ int main(int argc, char **argv){
 	 * short benchmark. the other NPB 2 implementations are similar. 
 	 * ---------------------------------------------------------------------
 	 */
-	for(i=0; i<T_MAX; i++){
-		timer_clear(i);
-	}
+	// for(i=0; i<T_MAX; i++){
+	// 	timer_clear(i);
+	// }
 	setup();
 	init_ui(u0, u1, twiddle, dims[0], dims[1], dims[2]);
-	compute_indexmap(twiddle, dims[0], dims[1], dims[2]);
-	compute_initial_conditions(u1, dims[0], dims[1], dims[2]);
-	fft_init(MAXDIM);
-	#pragma omp parallel
-		fft(1, u1, u0);
+	// compute_indexmap(twiddle, dims[0], dims[1], dims[2]);
+	// compute_initial_conditions(u1, dims[0], dims[1], dims[2]);
+	// fft_init(MAXDIM);
+	// #pragma omp parallel
+	// 	fft(1, u1, u0);
 	/*
 	 * ---------------------------------------------------------------------
 	 * start over from the beginning. note that all operations must
