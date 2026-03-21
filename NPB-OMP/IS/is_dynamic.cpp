@@ -224,7 +224,7 @@ void rank(int iteration);
 /*************             M  A  I  N             ****************/
 /*****************************************************************/
 int main(int argc, char** argv){
-printf("USING TASKLOOP SCHEDULER\n");
+printf("USING DYNAMIC SCHEDULER\n");
 #if defined(DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION)
 	printf(" DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION mode on\n");
 #endif
@@ -595,9 +595,8 @@ void rank(int iteration){
 
 		/* Determine the number of keys in each bucket */
 		#pragma omp for schedule(static)
-		for( i=0; i<NUM_KEYS; i++ ){
+		for( i=0; i<NUM_KEYS; i++ )
 			work_buff[key_array[i] >> shift]++;
-		}
 
 		/* Accumulative bucket sizes are the bucket pointers. */
 		/* These are global sizes accumulated upon to each bucket */
@@ -631,32 +630,27 @@ void rank(int iteration){
 		/* each bucket, which can be done in parallel.  Because the distribution */
 		/* of the number of keys in the buckets is Gaussian, the use of */
 		/* a dynamic schedule should improve load balance, thus, performance */
-		#pragma omp single
-		{
-			#pragma omp taskloop private(k1, k2, k, m)
-			for ( i=0; i< NUM_BUCKETS; i++ ) {
-				/* Clear the work array section associated with each bucket */
-				k1 = i * num_bucket_keys;
-				k2 = k1 + num_bucket_keys;
-				for ( k = k1; k < k2; k++ ){
-					key_buff_ptr[k] = 0;
-				}
-				/* Ranking of all keys occurs in this section: */
-				/* In this section, the keys themselves are used as their */
-				/* own indexes to determine how many of each there are: their */
-				/* individual population */
-				m = (i > 0)? bucket_ptrs[i-1] : 0;
-				for ( k = m; k < bucket_ptrs[i]; k++ ){
-					key_buff_ptr[key_buff_ptr2[k]]++; /* Now they have individual key population */
-				}
-				/* To obtain ranks of each key, successively add the individual key */
-				/* population, not forgetting to add m, the total of lesser keys, */
-				/* to the first key population */
-				key_buff_ptr[k1] += m;
-				for ( k = k1+1; k < k2; k++ ){
-					key_buff_ptr[k] += key_buff_ptr[k-1];
-				}
-			}
+		// #pragma omp for schedule(dynamic)
+		#pragma omp for schedule(nonmonotonic:dynamic)
+		for( i=0; i< NUM_BUCKETS; i++ ) {
+			/* Clear the work array section associated with each bucket */
+			k1 = i * num_bucket_keys;
+			k2 = k1 + num_bucket_keys;
+			for ( k = k1; k < k2; k++ )
+				key_buff_ptr[k] = 0;
+			/* Ranking of all keys occurs in this section: */
+			/* In this section, the keys themselves are used as their */
+			/* own indexes to determine how many of each there are: their */
+			/* individual population */
+			m = (i > 0)? bucket_ptrs[i-1] : 0;
+			for ( k = m; k < bucket_ptrs[i]; k++ )
+				key_buff_ptr[key_buff_ptr2[k]]++; /* Now they have individual key population */
+			/* To obtain ranks of each key, successively add the individual key */
+			/* population, not forgetting to add m, the total of lesser keys, */
+			/* to the first key population */
+			key_buff_ptr[k1] += m;
+			for ( k = k1+1; k < k2; k++ )
+				key_buff_ptr[k] += key_buff_ptr[k-1];
 		}
 	}
 #else /*USE_BUCKETS*/

@@ -58,8 +58,6 @@ Authors of the OpenMP code:
 #include "omp.h"
 #include "../common/npb-CPP.hpp"
 #include "npbparams.hpp"
-#include <sys/time.h>
-#include <time.h>
 
 #define IMAX PROBLEM_SIZE
 #define JMAX PROBLEM_SIZE
@@ -171,7 +169,13 @@ void z_solve();
 
 /* sp */
 int main(int argc, char* argv[]){
-printf("USING TASKLOOP SCHEDULER\n");
+	{
+		omp_sched_t kind;
+		int chunk;
+		omp_get_schedule(&kind, &chunk);
+		printf("Schedule = %s (%d), chunk = %d\n", sched_name(kind), kind, chunk);
+	}
+
 #if defined(DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION)
 	printf(" DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION mode on\n");
 #endif
@@ -253,11 +257,6 @@ printf("USING TASKLOOP SCHEDULER\n");
 	initialize();
 	for(i=1;i<=T_LAST;i++){timer_clear(i);}
 	timer_start(1);
-
-	// struct timeval tv1;
-    // gettimeofday(&tv1, NULL);
-    // long long start = tv1.tv_sec * 1000LL + tv1.tv_usec / 1000;
-
 	#pragma omp parallel firstprivate(niter) private(step)
   	{
 		for(step=1;step<=niter;step++){
@@ -268,10 +267,6 @@ printf("USING TASKLOOP SCHEDULER\n");
 			adi();
 		}
 	}
-	// gettimeofday(&tv1, NULL);
-    // long long end = tv1.tv_sec * 1000LL + tv1.tv_usec / 1000;
-	// printf("%lld\t%lld\t%.3f\n", start, end, (end - start) / 1000.0);
-	
 	timer_stop(1);
 	tmax=timer_read(1);
 	verify(niter, &class_npb, &verified);
@@ -348,15 +343,12 @@ void add(){
 	int thread_id = omp_get_thread_num();
 
 	if(timeron && thread_id==0){timer_start(T_ADD);}
-	#pragma omp single
-	{
-		#pragma omp taskloop private(j, i, m)
-		for (k=1; k<=nz2; k++) {
-			for(j=1; j<=ny2; j++){
-				for(i=1; i<=nx2; i++){
-					for(m=0; m<5; m++){
-						u[k][j][i][m]=u[k][j][i][m]+rhs[k][j][i][m];
-					}
+	#pragma omp for schedule(runtime)
+	for(k=1; k<=nz2; k++){
+		for(j=1; j<=ny2; j++){
+			for(i=1; i<=nx2; i++){
+				for(m=0; m<5; m++){
+					u[k][j][i][m]=u[k][j][i][m]+rhs[k][j][i][m];
 				}
 			}
 		}
@@ -385,30 +377,27 @@ void compute_rhs(){
 	 * and the speed of sound. 
 	 * ---------------------------------------------------------------------
 	 */
-	#pragma omp single
-	{
-		#pragma omp taskloop private(j, rho_inv, i, aux)
-		for (k=0; k<=grid_points[2]-1; k++) {
-			for(j=0; j<=grid_points[1]-1; j++){
-				for(i=0; i<=grid_points[0]-1; i++){
-					rho_inv=1.0/u[k][j][i][0];
-					rho_i[k][j][i]=rho_inv;
-					us[k][j][i]=u[k][j][i][1]*rho_inv;
-					vs[k][j][i]=u[k][j][i][2]*rho_inv;
-					ws[k][j][i]=u[k][j][i][3]*rho_inv;
-					square[k][j][i]=0.5*(
-							u[k][j][i][1]*u[k][j][i][1]+ 
-							u[k][j][i][2]*u[k][j][i][2]+
-							u[k][j][i][3]*u[k][j][i][3])*rho_inv;
-					qs[k][j][i]=square[k][j][i]*rho_inv;
-					/*
-					 * ---------------------------------------------------------------------
-					 * (don't need speed and ainx until the lhs computation)
-					 * ---------------------------------------------------------------------
-					 */
-					aux=c1c2*rho_inv*(u[k][j][i][4]-square[k][j][i]);
-					speed[k][j][i]=sqrt(aux);
-				}
+	#pragma omp for schedule(runtime)
+	for(k=0; k<=grid_points[2]-1; k++){
+		for(j=0; j<=grid_points[1]-1; j++){
+			for(i=0; i<=grid_points[0]-1; i++){
+				rho_inv=1.0/u[k][j][i][0];
+				rho_i[k][j][i]=rho_inv;
+				us[k][j][i]=u[k][j][i][1]*rho_inv;
+				vs[k][j][i]=u[k][j][i][2]*rho_inv;
+				ws[k][j][i]=u[k][j][i][3]*rho_inv;
+				square[k][j][i]=0.5*(
+						u[k][j][i][1]*u[k][j][i][1]+ 
+						u[k][j][i][2]*u[k][j][i][2]+
+						u[k][j][i][3]*u[k][j][i][3])*rho_inv;
+				qs[k][j][i]=square[k][j][i]*rho_inv;
+				/*
+				 * ---------------------------------------------------------------------
+				 * (don't need speed and ainx until the lhs computation)
+				 * ---------------------------------------------------------------------
+				 */
+				aux=c1c2*rho_inv*(u[k][j][i][4]-square[k][j][i]);
+				speed[k][j][i]=sqrt(aux);
 			}
 		}
 	}
@@ -419,15 +408,12 @@ void compute_rhs(){
 	 * including the boundary                   
 	 * ---------------------------------------------------------------------
 	 */
-	#pragma omp single
-	{
-		#pragma omp taskloop private(j, i, m)
-		for (k=0; k<=grid_points[2]-1; k++) {
-			for(j=0; j<=grid_points[1]-1; j++){
-				for(i=0; i<=grid_points[0]-1; i++){
-					for(m=0; m<5; m++){
-						rhs[k][j][i][m]=forcing[k][j][i][m];
-					}
+	#pragma omp for schedule(runtime)
+	for(k=0; k<=grid_points[2]-1; k++){
+		for(j=0; j<=grid_points[1]-1; j++){
+			for(i=0; i<=grid_points[0]-1; i++){
+				for(m=0; m<5; m++){
+					rhs[k][j][i][m]=forcing[k][j][i][m];
 				}
 			}
 		}
@@ -438,83 +424,80 @@ void compute_rhs(){
 	 * ---------------------------------------------------------------------
 	 */
 	if(timeron && thread_id==0){timer_start(T_RHSX);}
-	#pragma omp single
-	{
-		#pragma omp taskloop private(j, up1, uijk, m, um1, i)
-		for (k=1; k<=nz2; k++) {
-			for(j=1; j<=ny2; j++){
-				for(i=1; i<=nx2; i++){
-					uijk=us[k][j][i];
-					up1=us[k][j][i+1];
-					um1=us[k][j][i-1];
-					rhs[k][j][i][0]=rhs[k][j][i][0]+dx1tx1* 
-						(u[k][j][i+1][0]-2.0*u[k][j][i][0]+u[k][j][i-1][0])-
-						tx2*(u[k][j][i+1][1]-u[k][j][i-1][1]);
-					rhs[k][j][i][1]=rhs[k][j][i][1]+dx2tx1* 
-						(u[k][j][i+1][1]-2.0*u[k][j][i][1]+u[k][j][i-1][1])+
-						xxcon2*con43*(up1-2.0*uijk+um1)-
-						tx2*(u[k][j][i+1][1]*up1-u[k][j][i-1][1]*um1+
-								(u[k][j][i+1][4]-square[k][j][i+1]-
-								 u[k][j][i-1][4]+square[k][j][i-1])*c2);
-					rhs[k][j][i][2]=rhs[k][j][i][2]+dx3tx1* 
-						(u[k][j][i+1][2]-2.0*u[k][j][i][2]+u[k][j][i-1][2])+
-						xxcon2*(vs[k][j][i+1]-2.0*vs[k][j][i]+vs[k][j][i-1])-
-						tx2*(u[k][j][i+1][2]*up1-u[k][j][i-1][2]*um1);
-					rhs[k][j][i][3]=rhs[k][j][i][3]+dx4tx1* 
-						(u[k][j][i+1][3]-2.0*u[k][j][i][3]+u[k][j][i-1][3])+
-						xxcon2*(ws[k][j][i+1]-2.0*ws[k][j][i]+ws[k][j][i-1])-
-						tx2*(u[k][j][i+1][3]*up1-u[k][j][i-1][3]*um1);
-					rhs[k][j][i][4]=rhs[k][j][i][4]+dx5tx1* 
-						(u[k][j][i+1][4]-2.0*u[k][j][i][4]+u[k][j][i-1][4])+
-						xxcon3*(qs[k][j][i+1]-2.0*qs[k][j][i]+qs[k][j][i-1])+
-						xxcon4*(up1*up1-2.0*uijk*uijk+um1*um1)+
-						xxcon5*(u[k][j][i+1][4]*rho_i[k][j][i+1]- 
-								2.0*u[k][j][i][4]*rho_i[k][j][i]+
-								u[k][j][i-1][4]*rho_i[k][j][i-1])-
-						tx2*((c1*u[k][j][i+1][4]-c2*square[k][j][i+1])*up1-
-								(c1*u[k][j][i-1][4]-c2*square[k][j][i-1])*um1);
-				}
+	#pragma omp for schedule(runtime)
+	for(k=1; k<=nz2; k++){
+		for(j=1; j<=ny2; j++){
+			for(i=1; i<=nx2; i++){
+				uijk=us[k][j][i];
+				up1=us[k][j][i+1];
+				um1=us[k][j][i-1];
+				rhs[k][j][i][0]=rhs[k][j][i][0]+dx1tx1* 
+					(u[k][j][i+1][0]-2.0*u[k][j][i][0]+u[k][j][i-1][0])-
+					tx2*(u[k][j][i+1][1]-u[k][j][i-1][1]);
+				rhs[k][j][i][1]=rhs[k][j][i][1]+dx2tx1* 
+					(u[k][j][i+1][1]-2.0*u[k][j][i][1]+u[k][j][i-1][1])+
+					xxcon2*con43*(up1-2.0*uijk+um1)-
+					tx2*(u[k][j][i+1][1]*up1-u[k][j][i-1][1]*um1+
+							(u[k][j][i+1][4]-square[k][j][i+1]-
+							 u[k][j][i-1][4]+square[k][j][i-1])*c2);
+				rhs[k][j][i][2]=rhs[k][j][i][2]+dx3tx1* 
+					(u[k][j][i+1][2]-2.0*u[k][j][i][2]+u[k][j][i-1][2])+
+					xxcon2*(vs[k][j][i+1]-2.0*vs[k][j][i]+vs[k][j][i-1])-
+					tx2*(u[k][j][i+1][2]*up1-u[k][j][i-1][2]*um1);
+				rhs[k][j][i][3]=rhs[k][j][i][3]+dx4tx1* 
+					(u[k][j][i+1][3]-2.0*u[k][j][i][3]+u[k][j][i-1][3])+
+					xxcon2*(ws[k][j][i+1]-2.0*ws[k][j][i]+ws[k][j][i-1])-
+					tx2*(u[k][j][i+1][3]*up1-u[k][j][i-1][3]*um1);
+				rhs[k][j][i][4]=rhs[k][j][i][4]+dx5tx1* 
+					(u[k][j][i+1][4]-2.0*u[k][j][i][4]+u[k][j][i-1][4])+
+					xxcon3*(qs[k][j][i+1]-2.0*qs[k][j][i]+qs[k][j][i-1])+
+					xxcon4*(up1*up1-2.0*uijk*uijk+um1*um1)+
+					xxcon5*(u[k][j][i+1][4]*rho_i[k][j][i+1]- 
+							2.0*u[k][j][i][4]*rho_i[k][j][i]+
+							u[k][j][i-1][4]*rho_i[k][j][i-1])-
+					tx2*((c1*u[k][j][i+1][4]-c2*square[k][j][i+1])*up1-
+							(c1*u[k][j][i-1][4]-c2*square[k][j][i-1])*um1);
 			}
-			/*
-			 * ---------------------------------------------------------------------
-			 * add fourth order xi-direction dissipation               
-			 * ---------------------------------------------------------------------
-			 */
-			for(j=1; j<=ny2; j++){
-				i=1;
+		}
+		/*
+		 * ---------------------------------------------------------------------
+		 * add fourth order xi-direction dissipation               
+		 * ---------------------------------------------------------------------
+		 */
+		for(j=1; j<=ny2; j++){
+			i=1;
+			for(m=0; m<5; m++){
+				rhs[k][j][i][m]=rhs[k][j][i][m]-dssp* 
+					(5.0*u[k][j][i][m]-4.0*u[k][j][i+1][m]+u[k][j][i+2][m]);
+			}
+			i=2;
+			for(m=0; m<5; m++){
+				rhs[k][j][i][m]=rhs[k][j][i][m]-dssp* 
+					(-4.0*u[k][j][i-1][m]+6.0*u[k][j][i][m]-
+					 4.0*u[k][j][i+1][m]+u[k][j][i+2][m]);
+			}
+		}
+		for(j=1; j<=ny2; j++){
+			for(i=3; i<=nx2-2; i++){
 				for(m=0; m<5; m++){
 					rhs[k][j][i][m]=rhs[k][j][i][m]-dssp* 
-						(5.0*u[k][j][i][m]-4.0*u[k][j][i+1][m]+u[k][j][i+2][m]);
-				}
-				i=2;
-				for(m=0; m<5; m++){
-					rhs[k][j][i][m]=rhs[k][j][i][m]-dssp* 
-						(-4.0*u[k][j][i-1][m]+6.0*u[k][j][i][m]-
-						 4.0*u[k][j][i+1][m]+u[k][j][i+2][m]);
-				}
-			}
-			for(j=1; j<=ny2; j++){
-				for(i=3; i<=nx2-2; i++){
-					for(m=0; m<5; m++){
-						rhs[k][j][i][m]=rhs[k][j][i][m]-dssp* 
-							(u[k][j][i-2][m]-4.0*u[k][j][i-1][m]+ 
-							 6.0*u[k][j][i][m]-4.0*u[k][j][i+1][m]+ 
-							 u[k][j][i+2][m]);
-					}
-				}
-			}
-			for(j=1; j<=ny2; j++){
-				i=nx2-1;
-				for(m=0; m<5; m++){
-					rhs[k][j][i][m] = rhs[k][j][i][m]-dssp*
 						(u[k][j][i-2][m]-4.0*u[k][j][i-1][m]+ 
-						 6.0*u[k][j][i][m]-4.0*u[k][j][i+1][m]);
+						 6.0*u[k][j][i][m]-4.0*u[k][j][i+1][m]+ 
+						 u[k][j][i+2][m]);
 				}
-				i=nx2;
-				for(m=0; m<5; m++){
-					rhs[k][j][i][m] = rhs[k][j][i][m]-dssp*
-						(u[k][j][i-2][m]-4.0*u[k][j][i-1][m]+5.0*u[k][j][i][m]);
-				}
+			}
+		}
+		for(j=1; j<=ny2; j++){
+			i=nx2-1;
+			for(m=0; m<5; m++){
+				rhs[k][j][i][m] = rhs[k][j][i][m]-dssp*
+					(u[k][j][i-2][m]-4.0*u[k][j][i-1][m]+ 
+					 6.0*u[k][j][i][m]-4.0*u[k][j][i+1][m]);
+			}
+			i=nx2;
+			for(m=0; m<5; m++){
+				rhs[k][j][i][m] = rhs[k][j][i][m]-dssp*
+					(u[k][j][i-2][m]-4.0*u[k][j][i-1][m]+5.0*u[k][j][i][m]);
 			}
 		}
 	}
@@ -525,87 +508,84 @@ void compute_rhs(){
 	 * ---------------------------------------------------------------------
 	 */
 	if(timeron && thread_id==0){timer_start(T_RHSY);}
-	#pragma omp single
-	{
-		#pragma omp taskloop private(j, m, i, vm1, vp1, vijk)
-		for (k=1; k<=nz2; k++) {
-			for(j=1; j<=ny2; j++){
-				for(i=1; i<=nx2; i++){
-					vijk=vs[k][j][i];
-					vp1=vs[k][j+1][i];
-					vm1=vs[k][j-1][i];
-					rhs[k][j][i][0]=rhs[k][j][i][0]+dy1ty1* 
-						(u[k][j+1][i][0]-2.0*u[k][j][i][0]+u[k][j-1][i][0])-
-						ty2*(u[k][j+1][i][2]-u[k][j-1][i][2]);
-					rhs[k][j][i][1]=rhs[k][j][i][1]+dy2ty1* 
-						(u[k][j+1][i][1]-2.0*u[k][j][i][1]+u[k][j-1][i][1])+
-						yycon2*(us[k][j+1][i]-2.0*us[k][j][i]+us[k][j-1][i])-
-						ty2*(u[k][j+1][i][1]*vp1-u[k][j-1][i][1]*vm1);
-					rhs[k][j][i][2]=rhs[k][j][i][2]+dy3ty1* 
-						(u[k][j+1][i][2]-2.0*u[k][j][i][2]+u[k][j-1][i][2])+
-						yycon2*con43*(vp1-2.0*vijk+vm1)-
-						ty2*(u[k][j+1][i][2]*vp1-u[k][j-1][i][2]*vm1+
-								(u[k][j+1][i][4]-square[k][j+1][i]- 
-								 u[k][j-1][i][4]+square[k][j-1][i])* c2);
-					rhs[k][j][i][3]=rhs[k][j][i][3]+dy4ty1* 
-						(u[k][j+1][i][3]-2.0*u[k][j][i][3]+u[k][j-1][i][3])+
-						yycon2*(ws[k][j+1][i]-2.0*ws[k][j][i]+ws[k][j-1][i])-
-						ty2*(u[k][j+1][i][3]*vp1-u[k][j-1][i][3]*vm1);
-					rhs[k][j][i][4]=rhs[k][j][i][4]+dy5ty1* 
-						(u[k][j+1][i][4]-2.0*u[k][j][i][4]+u[k][j-1][i][4])+
-						yycon3*(qs[k][j+1][i]-2.0*qs[k][j][i]+qs[k][j-1][i])+
-						yycon4*(vp1*vp1- 2.0*vijk*vijk + vm1*vm1)+
-						yycon5*(u[k][j+1][i][4]*rho_i[k][j+1][i]- 
-								2.0*u[k][j][i][4]*rho_i[k][j][i]+
-								u[k][j-1][i][4]*rho_i[k][j-1][i])-
-						ty2*((c1*u[k][j+1][i][4]-c2*square[k][j+1][i])*vp1 -
-								(c1*u[k][j-1][i][4]-c2*square[k][j-1][i])*vm1);
-				}
+	#pragma omp for schedule(runtime)
+	for(k=1; k<=nz2; k++){
+		for(j=1; j<=ny2; j++){
+			for(i=1; i<=nx2; i++){
+				vijk=vs[k][j][i];
+				vp1=vs[k][j+1][i];
+				vm1=vs[k][j-1][i];
+				rhs[k][j][i][0]=rhs[k][j][i][0]+dy1ty1* 
+					(u[k][j+1][i][0]-2.0*u[k][j][i][0]+u[k][j-1][i][0])-
+					ty2*(u[k][j+1][i][2]-u[k][j-1][i][2]);
+				rhs[k][j][i][1]=rhs[k][j][i][1]+dy2ty1* 
+					(u[k][j+1][i][1]-2.0*u[k][j][i][1]+u[k][j-1][i][1])+
+					yycon2*(us[k][j+1][i]-2.0*us[k][j][i]+us[k][j-1][i])-
+					ty2*(u[k][j+1][i][1]*vp1-u[k][j-1][i][1]*vm1);
+				rhs[k][j][i][2]=rhs[k][j][i][2]+dy3ty1* 
+					(u[k][j+1][i][2]-2.0*u[k][j][i][2]+u[k][j-1][i][2])+
+					yycon2*con43*(vp1-2.0*vijk+vm1)-
+					ty2*(u[k][j+1][i][2]*vp1-u[k][j-1][i][2]*vm1+
+							(u[k][j+1][i][4]-square[k][j+1][i]- 
+							 u[k][j-1][i][4]+square[k][j-1][i])* c2);
+				rhs[k][j][i][3]=rhs[k][j][i][3]+dy4ty1* 
+					(u[k][j+1][i][3]-2.0*u[k][j][i][3]+u[k][j-1][i][3])+
+					yycon2*(ws[k][j+1][i]-2.0*ws[k][j][i]+ws[k][j-1][i])-
+					ty2*(u[k][j+1][i][3]*vp1-u[k][j-1][i][3]*vm1);
+				rhs[k][j][i][4]=rhs[k][j][i][4]+dy5ty1* 
+					(u[k][j+1][i][4]-2.0*u[k][j][i][4]+u[k][j-1][i][4])+
+					yycon3*(qs[k][j+1][i]-2.0*qs[k][j][i]+qs[k][j-1][i])+
+					yycon4*(vp1*vp1- 2.0*vijk*vijk + vm1*vm1)+
+					yycon5*(u[k][j+1][i][4]*rho_i[k][j+1][i]- 
+							2.0*u[k][j][i][4]*rho_i[k][j][i]+
+							u[k][j-1][i][4]*rho_i[k][j-1][i])-
+					ty2*((c1*u[k][j+1][i][4]-c2*square[k][j+1][i])*vp1 -
+							(c1*u[k][j-1][i][4]-c2*square[k][j-1][i])*vm1);
 			}
-			/*
-			 * ---------------------------------------------------------------------
-			 * add fourth order eta-direction dissipation         
-			 * ---------------------------------------------------------------------
-			 */
-			j = 1;
+		}
+		/*
+		 * ---------------------------------------------------------------------
+		 * add fourth order eta-direction dissipation         
+		 * ---------------------------------------------------------------------
+		 */
+		j = 1;
+		for(i=1; i<=nx2; i++){
+			for(m=0; m<5; m++){
+				rhs[k][j][i][m]=rhs[k][j][i][m]-dssp* 
+					(5.0*u[k][j][i][m]-4.0*u[k][j+1][i][m]+u[k][j+2][i][m]);
+			}
+		}
+		j = 2;
+		for(i=1; i<=nx2; i++){
+			for(m = 0; m < 5; m++) {
+				rhs[k][j][i][m]=rhs[k][j][i][m]-dssp* 
+					(-4.0*u[k][j-1][i][m]+6.0*u[k][j][i][m]-
+					 4.0*u[k][j+1][i][m]+u[k][j+2][i][m]);
+			}
+		}
+		for (j=3; j<=ny2-2; j++){
 			for(i=1; i<=nx2; i++){
 				for(m=0; m<5; m++){
 					rhs[k][j][i][m]=rhs[k][j][i][m]-dssp* 
-						(5.0*u[k][j][i][m]-4.0*u[k][j+1][i][m]+u[k][j+2][i][m]);
-				}
-			}
-			j = 2;
-			for(i=1; i<=nx2; i++){
-				for(m = 0; m < 5; m++) {
-					rhs[k][j][i][m]=rhs[k][j][i][m]-dssp* 
-						(-4.0*u[k][j-1][i][m]+6.0*u[k][j][i][m]-
-						 4.0*u[k][j+1][i][m]+u[k][j+2][i][m]);
-				}
-			}
-			for (j=3; j<=ny2-2; j++){
-				for(i=1; i<=nx2; i++){
-					for(m=0; m<5; m++){
-						rhs[k][j][i][m]=rhs[k][j][i][m]-dssp* 
-							(u[k][j-2][i][m]-4.0*u[k][j-1][i][m]+ 
-							 6.0*u[k][j][i][m]-4.0*u[k][j+1][i][m]+ 
-							 u[k][j+2][i][m]);
-					}
-				}
-			}
-			j=ny2-1;
-			for(i=1; i<=nx2; i++){
-				for(m=0; m<5; m++){
-					rhs[k][j][i][m]=rhs[k][j][i][m]-dssp*
 						(u[k][j-2][i][m]-4.0*u[k][j-1][i][m]+ 
-						 6.0*u[k][j][i][m]-4.0*u[k][j+1][i][m]);
+						 6.0*u[k][j][i][m]-4.0*u[k][j+1][i][m]+ 
+						 u[k][j+2][i][m]);
 				}
 			}
-			j=ny2;
-			for(i=1; i<=nx2; i++){
-				for(m=0; m<5; m++){
-					rhs[k][j][i][m]=rhs[k][j][i][m]-dssp*
-						(u[k][j-2][i][m]-4.0*u[k][j-1][i][m]+5.0*u[k][j][i][m]);
-				}
+		}
+		j=ny2-1;
+		for(i=1; i<=nx2; i++){
+			for(m=0; m<5; m++){
+				rhs[k][j][i][m]=rhs[k][j][i][m]-dssp*
+					(u[k][j-2][i][m]-4.0*u[k][j-1][i][m]+ 
+					 6.0*u[k][j][i][m]-4.0*u[k][j+1][i][m]);
+			}
+		}
+		j=ny2;
+		for(i=1; i<=nx2; i++){
+			for(m=0; m<5; m++){
+				rhs[k][j][i][m]=rhs[k][j][i][m]-dssp*
+					(u[k][j-2][i][m]-4.0*u[k][j-1][i][m]+5.0*u[k][j][i][m]);
 			}
 		}
 	}
@@ -616,42 +596,39 @@ void compute_rhs(){
 	 * ---------------------------------------------------------------------
 	 */
 	if(timeron && thread_id==0){timer_start(T_RHSZ);}
-	#pragma omp single
-	{
-		#pragma omp taskloop private(j, wijk, wp1, i, wm1)
-		for (k=1; k<=nz2; k++) {
-			for(j=1; j<=ny2; j++){
-				for(i=1; i<=nx2; i++){
-					wijk=ws[k][j][i];
-					wp1=ws[k+1][j][i];
-					wm1=ws[k-1][j][i];
-					rhs[k][j][i][0]=rhs[k][j][i][0]+dz1tz1* 
-						(u[k+1][j][i][0]-2.0*u[k][j][i][0]+u[k-1][j][i][0])-
-						tz2*(u[k+1][j][i][3]-u[k-1][j][i][3]);
-					rhs[k][j][i][1]=rhs[k][j][i][1]+dz2tz1* 
-						(u[k+1][j][i][1]-2.0*u[k][j][i][1]+u[k-1][j][i][1])+
-						zzcon2*(us[k+1][j][i]-2.0*us[k][j][i]+us[k-1][j][i])-
-						tz2*(u[k+1][j][i][1]*wp1-u[k-1][j][i][1]*wm1);
-					rhs[k][j][i][2]=rhs[k][j][i][2]+dz3tz1* 
-						(u[k+1][j][i][2]-2.0*u[k][j][i][2]+u[k-1][j][i][2])+
-						zzcon2*(vs[k+1][j][i]-2.0*vs[k][j][i]+vs[k-1][j][i])-
-						tz2*(u[k+1][j][i][2]*wp1-u[k-1][j][i][2]*wm1);
-					rhs[k][j][i][3]=rhs[k][j][i][3]+dz4tz1* 
-						(u[k+1][j][i][3]-2.0*u[k][j][i][3]+u[k-1][j][i][3])+
-						zzcon2*con43*(wp1-2.0*wijk+wm1)-
-						tz2*(u[k+1][j][i][3]*wp1-u[k-1][j][i][3]*wm1+
-								(u[k+1][j][i][4]-square[k+1][j][i]- 
-								 u[k-1][j][i][4]+square[k-1][j][i])*c2);
-					rhs[k][j][i][4]=rhs[k][j][i][4]+dz5tz1* 
-						(u[k+1][j][i][4]-2.0*u[k][j][i][4]+u[k-1][j][i][4])+
-						zzcon3*(qs[k+1][j][i]-2.0*qs[k][j][i]+qs[k-1][j][i])+
-						zzcon4*(wp1*wp1-2.0*wijk*wijk+wm1*wm1)+
-						zzcon5*(u[k+1][j][i][4]*rho_i[k+1][j][i]- 
-								2.0*u[k][j][i][4]*rho_i[k][j][i]+
-								u[k-1][j][i][4]*rho_i[k-1][j][i])-
-						tz2*((c1*u[k+1][j][i][4]-c2*square[k+1][j][i])*wp1-
-								(c1*u[k-1][j][i][4]-c2*square[k-1][j][i])*wm1);
-				}
+	#pragma omp for schedule(runtime)
+	for(k=1; k<=nz2; k++){
+		for(j=1; j<=ny2; j++){
+			for(i=1; i<=nx2; i++){
+				wijk=ws[k][j][i];
+				wp1=ws[k+1][j][i];
+				wm1=ws[k-1][j][i];
+				rhs[k][j][i][0]=rhs[k][j][i][0]+dz1tz1* 
+					(u[k+1][j][i][0]-2.0*u[k][j][i][0]+u[k-1][j][i][0])-
+					tz2*(u[k+1][j][i][3]-u[k-1][j][i][3]);
+				rhs[k][j][i][1]=rhs[k][j][i][1]+dz2tz1* 
+					(u[k+1][j][i][1]-2.0*u[k][j][i][1]+u[k-1][j][i][1])+
+					zzcon2*(us[k+1][j][i]-2.0*us[k][j][i]+us[k-1][j][i])-
+					tz2*(u[k+1][j][i][1]*wp1-u[k-1][j][i][1]*wm1);
+				rhs[k][j][i][2]=rhs[k][j][i][2]+dz3tz1* 
+					(u[k+1][j][i][2]-2.0*u[k][j][i][2]+u[k-1][j][i][2])+
+					zzcon2*(vs[k+1][j][i]-2.0*vs[k][j][i]+vs[k-1][j][i])-
+					tz2*(u[k+1][j][i][2]*wp1-u[k-1][j][i][2]*wm1);
+				rhs[k][j][i][3]=rhs[k][j][i][3]+dz4tz1* 
+					(u[k+1][j][i][3]-2.0*u[k][j][i][3]+u[k-1][j][i][3])+
+					zzcon2*con43*(wp1-2.0*wijk+wm1)-
+					tz2*(u[k+1][j][i][3]*wp1-u[k-1][j][i][3]*wm1+
+							(u[k+1][j][i][4]-square[k+1][j][i]- 
+							 u[k-1][j][i][4]+square[k-1][j][i])*c2);
+				rhs[k][j][i][4]=rhs[k][j][i][4]+dz5tz1* 
+					(u[k+1][j][i][4]-2.0*u[k][j][i][4]+u[k-1][j][i][4])+
+					zzcon3*(qs[k+1][j][i]-2.0*qs[k][j][i]+qs[k-1][j][i])+
+					zzcon4*(wp1*wp1-2.0*wijk*wijk+wm1*wm1)+
+					zzcon5*(u[k+1][j][i][4]*rho_i[k+1][j][i]- 
+							2.0*u[k][j][i][4]*rho_i[k][j][i]+
+							u[k-1][j][i][4]*rho_i[k-1][j][i])-
+					tz2*((c1*u[k+1][j][i][4]-c2*square[k+1][j][i])*wp1-
+							(c1*u[k-1][j][i][4]-c2*square[k-1][j][i])*wm1);
 			}
 		}
 	}
@@ -661,85 +638,67 @@ void compute_rhs(){
 	 * ---------------------------------------------------------------------
 	 */
 	k=1;
-	#pragma omp single
-	{
-		#pragma omp taskloop private(i, m)
-		for (j=1; j<=ny2; j++) {
-			for(i=1; i<=nx2; i++){
-				for(m=0; m<5; m++){
-					rhs[k][j][i][m]=rhs[k][j][i][m]-dssp* 
-						(5.0*u[k][j][i][m]-4.0*u[k+1][j][i][m]+u[k+2][j][i][m]);
-				}
+	#pragma omp for schedule(runtime)
+	for(j=1; j<=ny2; j++){
+		for(i=1; i<=nx2; i++){
+			for(m=0; m<5; m++){
+				rhs[k][j][i][m]=rhs[k][j][i][m]-dssp* 
+					(5.0*u[k][j][i][m]-4.0*u[k+1][j][i][m]+u[k+2][j][i][m]);
 			}
 		}
 	}
 	k=2;
-	#pragma omp single
-	{
-		#pragma omp taskloop private(i, m)
-		for (j=1; j<=ny2; j++) {
-			for(i=1; i<=nx2; i++){
-				for(m=0; m<5; m++){
-					rhs[k][j][i][m]=rhs[k][j][i][m]-dssp* 
-						(-4.0*u[k-1][j][i][m]+6.0*u[k][j][i][m]-
-						 4.0*u[k+1][j][i][m]+u[k+2][j][i][m]);
-				}
+	#pragma omp for schedule(runtime)
+	for(j=1; j<=ny2; j++){
+		for(i=1; i<=nx2; i++){
+			for(m=0; m<5; m++){
+				rhs[k][j][i][m]=rhs[k][j][i][m]-dssp* 
+					(-4.0*u[k-1][j][i][m]+6.0*u[k][j][i][m]-
+					 4.0*u[k+1][j][i][m]+u[k+2][j][i][m]);
 			}
 		}
 	}
-	#pragma omp single
-	{
-		#pragma omp taskloop private(j, i, m)
-		for (k=3; k<=nz2-2; k++) {
-			for(j=1; j<=ny2; j++){
-				for(i=1; i<=nx2; i++){
-					for(m=0; m<5; m++){
-						rhs[k][j][i][m]=rhs[k][j][i][m]-dssp* 
-							(u[k-2][j][i][m]-4.0*u[k-1][j][i][m]+ 
-							 6.0*u[k][j][i][m]-4.0*u[k+1][j][i][m]+ 
-							 u[k+2][j][i][m]);
-					}
+	#pragma omp for schedule(runtime)
+	for(k=3; k<=nz2-2; k++){
+		for(j=1; j<=ny2; j++){
+			for(i=1; i<=nx2; i++){
+				for(m=0; m<5; m++){
+					rhs[k][j][i][m]=rhs[k][j][i][m]-dssp* 
+						(u[k-2][j][i][m]-4.0*u[k-1][j][i][m]+ 
+						 6.0*u[k][j][i][m]-4.0*u[k+1][j][i][m]+ 
+						 u[k+2][j][i][m]);
 				}
 			}
 		}
 	}
 	k=nz2-1;
-	#pragma omp single
-	{
-		#pragma omp taskloop private(i, m)
-		for (j=1; j<=ny2; j++) {
-			for(i=1; i<=nx2; i++){
-				for(m=0; m<5; m++){
-					rhs[k][j][i][m]=rhs[k][j][i][m]-dssp*
-						(u[k-2][j][i][m]-4.0*u[k-1][j][i][m]+ 
-						 6.0*u[k][j][i][m]-4.0*u[k+1][j][i][m]);
-				}
+	#pragma omp for schedule(runtime)
+	for(j=1; j<=ny2; j++){
+		for(i=1; i<=nx2; i++){
+			for(m=0; m<5; m++){
+				rhs[k][j][i][m]=rhs[k][j][i][m]-dssp*
+					(u[k-2][j][i][m]-4.0*u[k-1][j][i][m]+ 
+					 6.0*u[k][j][i][m]-4.0*u[k+1][j][i][m]);
 			}
 		}
 	}
 	k=nz2;
-	#pragma omp single
-	{
-		#pragma omp taskloop private(i, m)
-		for (j=1; j<=ny2; j++) {
-			for(i=1; i<=nx2; i++){
-				for(m=0; m<5; m++){
-					rhs[k][j][i][m]=rhs[k][j][i][m]-dssp*
-						(u[k-2][j][i][m]-4.0*u[k-1][j][i][m]+5.0*u[k][j][i][m]);
-				}
+	#pragma omp for schedule(runtime)
+	for(j=1; j<=ny2; j++){
+		for(i=1; i<=nx2; i++){
+			for(m=0; m<5; m++){
+				rhs[k][j][i][m]=rhs[k][j][i][m]-dssp*
+					(u[k-2][j][i][m]-4.0*u[k-1][j][i][m]+5.0*u[k][j][i][m]);
 			}
 		}
 	}
 	if(timeron && thread_id==0){timer_stop(T_RHSZ);}
-	#pragma omp single
-	{
-		#pragma omp taskloop private(j, i, m)
-		for (k=1; k<=nz2; k++) {
-			for(j=1; j<=ny2; j++){
-				for(i=1; i<=nx2; i++){
-					for(m=0; m<5; m++){
-						rhs[k][j][i][m]=rhs[k][j][i][m]*dt;
-					}
+	#pragma omp for schedule(runtime)
+	for(k=1; k<=nz2; k++){
+		for(j=1; j<=ny2; j++){
+			for(i=1; i<=nx2; i++){
+				for(m=0; m<5; m++){
+					rhs[k][j][i][m]=rhs[k][j][i][m]*dt;
 				}
 			}
 		}
@@ -1322,25 +1281,22 @@ void ninvr(){
 	int thread_id = omp_get_thread_num();
 
 	if(timeron && thread_id==0){timer_start(T_NINVR);}
-	#pragma omp single
-	{
-		#pragma omp taskloop private(j, r1, r2, t1, i, r3, t2, r4, r5)
-		for (k=1; k<=nz2; k++) {
-			for(j=1; j<=ny2; j++){
-				for(i=1; i<=nx2; i++){
-					r1=rhs[k][j][i][0];
-					r2=rhs[k][j][i][1];
-					r3=rhs[k][j][i][2];
-					r4=rhs[k][j][i][3];
-					r5=rhs[k][j][i][4];
-					t1=bt*r3;
-					t2=0.5*(r4+r5);
-					rhs[k][j][i][0]=-r2;
-					rhs[k][j][i][1]=r1;
-					rhs[k][j][i][2]=bt*(r4-r5);
-					rhs[k][j][i][3]=-t1+t2;
-					rhs[k][j][i][4]=t1+t2;
-				}
+	#pragma omp for schedule(runtime)
+	for(k=1; k<=nz2; k++){
+		for(j=1; j<=ny2; j++){
+			for(i=1; i<=nx2; i++){
+				r1=rhs[k][j][i][0];
+				r2=rhs[k][j][i][1];
+				r3=rhs[k][j][i][2];
+				r4=rhs[k][j][i][3];
+				r5=rhs[k][j][i][4];
+				t1=bt*r3;
+				t2=0.5*(r4+r5);
+				rhs[k][j][i][0]=-r2;
+				rhs[k][j][i][1]=r1;
+				rhs[k][j][i][2]=bt*(r4-r5);
+				rhs[k][j][i][3]=-t1+t2;
+				rhs[k][j][i][4]=t1+t2;
 			}
 		}
 	}
@@ -1358,25 +1314,22 @@ void pinvr(){
 	int thread_id = omp_get_thread_num();
 
 	if(timeron && thread_id==0){timer_start(T_PINVR);}
-	#pragma omp single
-	{
-		#pragma omp taskloop private(j, r1, r2, t1, i, r3, t2, r4, r5)
-		for (k=1; k<=nz2; k++) {
-			for(j=1; j<=ny2; j++){
-				for(i=1; i<=nx2; i++){
-					r1=rhs[k][j][i][0];
-					r2=rhs[k][j][i][1];
-					r3=rhs[k][j][i][2];
-					r4=rhs[k][j][i][3];
-					r5=rhs[k][j][i][4];
-					t1=bt*r1;
-					t2=0.5*(r4+r5);
-					rhs[k][j][i][0]=bt*(r4-r5);
-					rhs[k][j][i][1]=-r3;
-					rhs[k][j][i][2]=r2;
-					rhs[k][j][i][3]=-t1+t2;
-					rhs[k][j][i][4]=t1+t2;
-				}
+	#pragma omp for schedule(runtime)
+	for(k=1; k<=nz2; k++){
+		for(j=1; j<=ny2; j++){
+			for(i=1; i<=nx2; i++){
+				r1=rhs[k][j][i][0];
+				r2=rhs[k][j][i][1];
+				r3=rhs[k][j][i][2];
+				r4=rhs[k][j][i][3];
+				r5=rhs[k][j][i][4];
+				t1=bt*r1;
+				t2=0.5*(r4+r5);
+				rhs[k][j][i][0]=bt*(r4-r5);
+				rhs[k][j][i][1]=-r3;
+				rhs[k][j][i][2]=r2;
+				rhs[k][j][i][3]=-t1+t2;
+				rhs[k][j][i][4]=t1+t2;
 			}
 		}
 	}
@@ -1608,32 +1561,29 @@ void txinvr(){
 	int thread_id = omp_get_thread_num();
 
 	if(timeron && thread_id==0){timer_start(T_TXINVR);}
-	#pragma omp single
-	{
-		#pragma omp taskloop private(t3, ww, ac, ac2inv, t1, i, r3, t2, j, r1, vv, r2, uu, ru1, r4, r5)
-		for (k=1; k<=nz2; k++) {
-			for(j=1; j<=ny2; j++){
-				for(i=1; i<=nx2; i++){
-					ru1=rho_i[k][j][i];
-					uu=us[k][j][i];
-					vv=vs[k][j][i];
-					ww=ws[k][j][i];
-					ac=speed[k][j][i];
-					ac2inv=ac*ac;
-					r1=rhs[k][j][i][0];
-					r2=rhs[k][j][i][1];
-					r3=rhs[k][j][i][2];
-					r4=rhs[k][j][i][3];
-					r5=rhs[k][j][i][4];
-					t1=c2/ac2inv*(qs[k][j][i]*r1-uu*r2-vv*r3-ww*r4+r5);
-					t2=bt*ru1*(uu*r1-r2);
-					t3=(bt*ru1*ac)*t1;
-					rhs[k][j][i][0]=r1-t1;
-					rhs[k][j][i][1]=-ru1*(ww*r1-r4);
-					rhs[k][j][i][2]=ru1*(vv*r1-r3);
-					rhs[k][j][i][3]=-t2+t3;
-					rhs[k][j][i][4]=t2+t3;
-				}
+	#pragma omp for schedule(runtime)
+	for(k=1; k<=nz2; k++){
+		for(j=1; j<=ny2; j++){
+			for(i=1; i<=nx2; i++){
+				ru1=rho_i[k][j][i];
+				uu=us[k][j][i];
+				vv=vs[k][j][i];
+				ww=ws[k][j][i];
+				ac=speed[k][j][i];
+				ac2inv=ac*ac;
+				r1=rhs[k][j][i][0];
+				r2=rhs[k][j][i][1];
+				r3=rhs[k][j][i][2];
+				r4=rhs[k][j][i][3];
+				r5=rhs[k][j][i][4];
+				t1=c2/ac2inv*(qs[k][j][i]*r1-uu*r2-vv*r3-ww*r4+r5);
+				t2=bt*ru1*(uu*r1-r2);
+				t3=(bt*ru1*ac)*t1;
+				rhs[k][j][i][0]=r1-t1;
+				rhs[k][j][i][1]=-ru1*(ww*r1-r4);
+				rhs[k][j][i][2]=ru1*(vv*r1-r3);
+				rhs[k][j][i][3]=-t2+t3;
+				rhs[k][j][i][4]=t2+t3;
 			}
 		}
 	}
@@ -1651,34 +1601,31 @@ void tzetar(){
 	int thread_id = omp_get_thread_num();
 
 	if(timeron && thread_id==0){timer_start(T_TZETAR);}
-	#pragma omp single
-	{
-		#pragma omp taskloop private(btuz, t3, yvel, ac, t1, i, r3, t2, j, r1, zvel, uzik1, xvel, r2, ac2u, r4, r5)
-		for (k=1; k<=nz2; k++) {
-			for(j=1; j<=ny2; j++){
-				for(i=1; i<=nx2; i++){
-					xvel=us[k][j][i];
-					yvel=vs[k][j][i];
-					zvel=ws[k][j][i];
-					ac=speed[k][j][i];
-					ac2u=ac*ac;
-					r1=rhs[k][j][i][0];
-					r2=rhs[k][j][i][1];
-					r3=rhs[k][j][i][2];
-					r4=rhs[k][j][i][3];
-					r5=rhs[k][j][i][4];
-					uzik1=u[k][j][i][0];
-					btuz=bt*uzik1;
-					t1=btuz/ac*(r4+r5);
-					t2=r3+t1;
-					t3=btuz*(r4-r5);
-					rhs[k][j][i][0]=t2;
-					rhs[k][j][i][1]=-uzik1*r2+xvel*t2;
-					rhs[k][j][i][2]=uzik1*r1+yvel*t2;
-					rhs[k][j][i][3]=zvel*t2+t3;
-					rhs[k][j][i][4]=uzik1*(-xvel*r2+yvel*r1) + 
-						qs[k][j][i]*t2+c2iv*ac2u*t1+zvel*t3;
-				}
+	#pragma omp for schedule(runtime)
+	for(k=1; k<=nz2; k++){
+		for(j=1; j<=ny2; j++){
+			for(i=1; i<=nx2; i++){
+				xvel=us[k][j][i];
+				yvel=vs[k][j][i];
+				zvel=ws[k][j][i];
+				ac=speed[k][j][i];
+				ac2u=ac*ac;
+				r1=rhs[k][j][i][0];
+				r2=rhs[k][j][i][1];
+				r3=rhs[k][j][i][2];
+				r4=rhs[k][j][i][3];
+				r5=rhs[k][j][i][4];
+				uzik1=u[k][j][i][0];
+				btuz=bt*uzik1;
+				t1=btuz/ac*(r4+r5);
+				t2=r3+t1;
+				t3=btuz*(r4-r5);
+				rhs[k][j][i][0]=t2;
+				rhs[k][j][i][1]=-uzik1*r2+xvel*t2;
+				rhs[k][j][i][2]=uzik1*r1+yvel*t2;
+				rhs[k][j][i][3]=zvel*t2+t3;
+				rhs[k][j][i][4]=uzik1*(-xvel*r2+yvel*r1) + 
+					qs[k][j][i]*t2+c2iv*ac2u*t1+zvel*t3;
 			}
 		}
 	}
@@ -1997,144 +1944,116 @@ void x_solve(){
 
 	if(timeron && thread_id==0){timer_start(T_XSOLVE);}
 
-	#pragma omp single
-	{
-		#pragma omp taskloop private(j, m, fac1, fac2, i, i2, ru1, i1)
-		for (k=1; k<=nz2; k++) {
-			double cv[PROBLEM_SIZE], rhon[PROBLEM_SIZE];
-			double lhs[IMAXP+1][IMAXP+1][5];
-			double lhsp[IMAXP+1][IMAXP+1][5];
-			double lhsm[IMAXP+1][IMAXP+1][5];
-			for(j=1; j<=ny2; j++){
-				for(m=0; m<5; m++){
-					lhs[j][0][m]=0.0;
-					lhsp[j][0][m]=0.0;
-					lhsm[j][0][m]=0.0;
-					lhs[j][nx2+1][m]=0.0;
-					lhsp[j][nx2+1][m]=0.0;
-					lhsm[j][nx2+1][m]=0.0;
-				}
-				lhs[j][0][2]=1.0;
-				lhsp[j][0][2]=1.0;
-				lhsm[j][0][2]=1.0;
-				lhs[j][nx2+1][2]=1.0;
-				lhsp[j][nx2+1][2]=1.0;
-				lhsm[j][nx2+1][2]=1.0;
+	#pragma omp for schedule(runtime)
+	for(k=1; k<=nz2; k++){
+		double cv[PROBLEM_SIZE], rhon[PROBLEM_SIZE];
+		double lhs[IMAXP+1][IMAXP+1][5];
+		double lhsp[IMAXP+1][IMAXP+1][5];
+		double lhsm[IMAXP+1][IMAXP+1][5];
+
+		for(j=1; j<=ny2; j++){
+			for(m=0; m<5; m++){
+				lhs[j][0][m]=0.0;
+				lhsp[j][0][m]=0.0;
+				lhsm[j][0][m]=0.0;
+				lhs[j][nx2+1][m]=0.0;
+				lhsp[j][nx2+1][m]=0.0;
+				lhsm[j][nx2+1][m]=0.0;
 			}
-			/*
-			 * ---------------------------------------------------------------------
-			 * computes the left hand side for the three x-factors  
-			 * ---------------------------------------------------------------------
-			 * first fill the lhs for the u-eigenvalue                   
-			 * ---------------------------------------------------------------------
-			 */
-			for(j=1; j<=ny2; j++){
-				for(i=0; i<=grid_points[0]-1; i++){
-					ru1=c3c4*rho_i[k][j][i];
-					cv[i]=us[k][j][i];
-					rhon[i]=max(max(dx2+con43*ru1,dx5+c1c5*ru1), max(dxmax+ru1,dx1));
-				}
-				for(i=1; i<=nx2; i++){
-					lhs[j][i][0]=0.0;
-					lhs[j][i][1]=-dttx2*cv[i-1]-dttx1*rhon[i-1];
-					lhs[j][i][2]=1.0+c2dttx1*rhon[i];
-					lhs[j][i][3]=dttx2*cv[i+1]-dttx1*rhon[i+1];
-					lhs[j][i][4]=0.0;
-				}
+			lhs[j][0][2]=1.0;
+			lhsp[j][0][2]=1.0;
+			lhsm[j][0][2]=1.0;
+			lhs[j][nx2+1][2]=1.0;
+			lhsp[j][nx2+1][2]=1.0;
+			lhsm[j][nx2+1][2]=1.0;
+		}
+
+		/*
+		 * ---------------------------------------------------------------------
+		 * computes the left hand side for the three x-factors  
+		 * ---------------------------------------------------------------------
+		 * first fill the lhs for the u-eigenvalue                   
+		 * ---------------------------------------------------------------------
+		 */
+		for(j=1; j<=ny2; j++){
+			for(i=0; i<=grid_points[0]-1; i++){
+				ru1=c3c4*rho_i[k][j][i];
+				cv[i]=us[k][j][i];
+				rhon[i]=max(max(dx2+con43*ru1,dx5+c1c5*ru1), max(dxmax+ru1,dx1));
 			}
-			/*
-			 * ---------------------------------------------------------------------
-			 * add fourth order dissipation                             
-			 * ---------------------------------------------------------------------
-			 */
-			for(j=1; j<=ny2; j++){
-				i=1;
-				lhs[j][i][2]=lhs[j][i][2]+comz5;
-				lhs[j][i][3]=lhs[j][i][3]-comz4;
-				lhs[j][i][4]=lhs[j][i][4]+comz1;
-				lhs[j][i+1][1]=lhs[j][i+1][1]-comz4;
-				lhs[j][i+1][2]=lhs[j][i+1][2]+comz6;
-				lhs[j][i+1][3]=lhs[j][i+1][3]-comz4;
-				lhs[j][i+1][4]=lhs[j][i+1][4]+comz1;
+			for(i=1; i<=nx2; i++){
+				lhs[j][i][0]=0.0;
+				lhs[j][i][1]=-dttx2*cv[i-1]-dttx1*rhon[i-1];
+				lhs[j][i][2]=1.0+c2dttx1*rhon[i];
+				lhs[j][i][3]=dttx2*cv[i+1]-dttx1*rhon[i+1];
+				lhs[j][i][4]=0.0;
 			}
-			for(j=1; j<=ny2; j++){
-				for(i=3; i<=grid_points[0]-4; i++){
-					lhs[j][i][0]=lhs[j][i][0]+comz1;
-					lhs[j][i][1]=lhs[j][i][1]-comz4;
-					lhs[j][i][2]=lhs[j][i][2]+comz6;
-					lhs[j][i][3]=lhs[j][i][3]-comz4;
-					lhs[j][i][4]=lhs[j][i][4]+comz1;
-				}
-			}
-			for(j=1; j<=ny2; j++){
-				i=grid_points[0]-3;
+		}
+		/*
+		 * ---------------------------------------------------------------------
+		 * add fourth order dissipation                             
+		 * ---------------------------------------------------------------------
+		 */
+		for(j=1; j<=ny2; j++){
+			i=1;
+			lhs[j][i][2]=lhs[j][i][2]+comz5;
+			lhs[j][i][3]=lhs[j][i][3]-comz4;
+			lhs[j][i][4]=lhs[j][i][4]+comz1;
+			lhs[j][i+1][1]=lhs[j][i+1][1]-comz4;
+			lhs[j][i+1][2]=lhs[j][i+1][2]+comz6;
+			lhs[j][i+1][3]=lhs[j][i+1][3]-comz4;
+			lhs[j][i+1][4]=lhs[j][i+1][4]+comz1;
+		}
+		for(j=1; j<=ny2; j++){
+			for(i=3; i<=grid_points[0]-4; i++){
 				lhs[j][i][0]=lhs[j][i][0]+comz1;
 				lhs[j][i][1]=lhs[j][i][1]-comz4;
 				lhs[j][i][2]=lhs[j][i][2]+comz6;
 				lhs[j][i][3]=lhs[j][i][3]-comz4;
-				lhs[j][i+1][0]=lhs[j][i+1][0]+comz1;
-				lhs[j][i+1][1]=lhs[j][i+1][1]-comz4;
-				lhs[j][i+1][2]=lhs[j][i+1][2]+comz5;
+				lhs[j][i][4]=lhs[j][i][4]+comz1;
 			}
-			/*
-			 * ---------------------------------------------------------------------
-			 * subsequently, fill the other factors (u+c), (u-c) by adding to 
-			 * the first  
-			 * ---------------------------------------------------------------------
-			 */
-			for(j=1; j<=ny2; j++){
-				for(i=1; i<=nx2; i++){
-					lhsp[j][i][0]=lhs[j][i][0];
-					lhsp[j][i][1]=lhs[j][i][1]-dttx2*speed[k][j][i-1];
-					lhsp[j][i][2]=lhs[j][i][2];
-					lhsp[j][i][3]=lhs[j][i][3]+dttx2*speed[k][j][i+1];
-					lhsp[j][i][4]=lhs[j][i][4];
-					lhsm[j][i][0]=lhs[j][i][0];
-					lhsm[j][i][1]=lhs[j][i][1]+dttx2*speed[k][j][i-1];
-					lhsm[j][i][2]=lhs[j][i][2];
-					lhsm[j][i][3]=lhs[j][i][3]-dttx2*speed[k][j][i+1];
-					lhsm[j][i][4]=lhs[j][i][4];
-				}
+		}
+		for(j=1; j<=ny2; j++){
+			i=grid_points[0]-3;
+			lhs[j][i][0]=lhs[j][i][0]+comz1;
+			lhs[j][i][1]=lhs[j][i][1]-comz4;
+			lhs[j][i][2]=lhs[j][i][2]+comz6;
+			lhs[j][i][3]=lhs[j][i][3]-comz4;
+			lhs[j][i+1][0]=lhs[j][i+1][0]+comz1;
+			lhs[j][i+1][1]=lhs[j][i+1][1]-comz4;
+			lhs[j][i+1][2]=lhs[j][i+1][2]+comz5;
+		}
+		/*
+		 * ---------------------------------------------------------------------
+		 * subsequently, fill the other factors (u+c), (u-c) by adding to 
+		 * the first  
+		 * ---------------------------------------------------------------------
+		 */
+		for(j=1; j<=ny2; j++){
+			for(i=1; i<=nx2; i++){
+				lhsp[j][i][0]=lhs[j][i][0];
+				lhsp[j][i][1]=lhs[j][i][1]-dttx2*speed[k][j][i-1];
+				lhsp[j][i][2]=lhs[j][i][2];
+				lhsp[j][i][3]=lhs[j][i][3]+dttx2*speed[k][j][i+1];
+				lhsp[j][i][4]=lhs[j][i][4];
+				lhsm[j][i][0]=lhs[j][i][0];
+				lhsm[j][i][1]=lhs[j][i][1]+dttx2*speed[k][j][i-1];
+				lhsm[j][i][2]=lhs[j][i][2];
+				lhsm[j][i][3]=lhs[j][i][3]-dttx2*speed[k][j][i+1];
+				lhsm[j][i][4]=lhs[j][i][4];
 			}
-			/*
-			 * ---------------------------------------------------------------------
-			 * FORWARD ELIMINATION  
-			 * ---------------------------------------------------------------------
-			 * perform the thomas algorithm; first, FORWARD ELIMINATION     
-			 * ---------------------------------------------------------------------
-			 */
-			for(j=1; j<=ny2; j++){
-				for(i=0; i<=grid_points[0]-3; i++){
-					i1=i+1;
-					i2=i+2;
-					fac1=1.0/lhs[j][i][2];
-					lhs[j][i][3]=fac1*lhs[j][i][3];
-					lhs[j][i][4]=fac1*lhs[j][i][4];
-					for(m=0; m<3; m++){
-						rhs[k][j][i][m]=fac1*rhs[k][j][i][m];
-					}
-					lhs[j][i1][2]=lhs[j][i1][2]-lhs[j][i1][1]*lhs[j][i][3];
-					lhs[j][i1][3]=lhs[j][i1][3]-lhs[j][i1][1]*lhs[j][i][4];
-					for(m=0; m<3; m++){
-						rhs[k][j][i1][m]=rhs[k][j][i1][m]-lhs[j][i1][1]*rhs[k][j][i][m];
-					}
-					lhs[j][i2][1]=lhs[j][i2][1]-lhs[j][i2][0]*lhs[j][i][3];
-					lhs[j][i2][2]=lhs[j][i2][2]-lhs[j][i2][0]*lhs[j][i][4];
-					for(m=0; m<3; m++){
-						rhs[k][j][i2][m]=rhs[k][j][i2][m]-lhs[j][i2][0]*rhs[k][j][i][m];
-					}
-				}
-			}
-			/*
-			 * ---------------------------------------------------------------------
-			 * the last two rows in this grid block are a bit different, 
-			 * since they do not have two more rows available for the
-			 * elimination of off-diagonal entries
-			 * ---------------------------------------------------------------------
-			 */
-			for(j=1; j<=ny2; j++){
-				i=grid_points[0]-2;
-				i1=grid_points[0]-1;
+		}
+		/*
+		 * ---------------------------------------------------------------------
+		 * FORWARD ELIMINATION  
+		 * ---------------------------------------------------------------------
+		 * perform the thomas algorithm; first, FORWARD ELIMINATION     
+		 * ---------------------------------------------------------------------
+		 */
+		for(j=1; j<=ny2; j++){
+			for(i=0; i<=grid_points[0]-3; i++){
+				i1=i+1;
+				i2=i+2;
 				fac1=1.0/lhs[j][i][2];
 				lhs[j][i][3]=fac1*lhs[j][i][3];
 				lhs[j][i][4]=fac1*lhs[j][i][4];
@@ -2146,57 +2065,53 @@ void x_solve(){
 				for(m=0; m<3; m++){
 					rhs[k][j][i1][m]=rhs[k][j][i1][m]-lhs[j][i1][1]*rhs[k][j][i][m];
 				}
-				/*
-				 * ---------------------------------------------------------------------
-				 * scale the last row immediately 
-				 * ---------------------------------------------------------------------
-				 */
-				fac2 = 1.0/lhs[j][i1][2];
+				lhs[j][i2][1]=lhs[j][i2][1]-lhs[j][i2][0]*lhs[j][i][3];
+				lhs[j][i2][2]=lhs[j][i2][2]-lhs[j][i2][0]*lhs[j][i][4];
 				for(m=0; m<3; m++){
-					rhs[k][j][i1][m]=fac2*rhs[k][j][i1][m];
+					rhs[k][j][i2][m]=rhs[k][j][i2][m]-lhs[j][i2][0]*rhs[k][j][i][m];
 				}
+			}
+		}
+		/*
+		 * ---------------------------------------------------------------------
+		 * the last two rows in this grid block are a bit different, 
+		 * since they do not have two more rows available for the
+		 * elimination of off-diagonal entries
+		 * ---------------------------------------------------------------------
+		 */
+		for(j=1; j<=ny2; j++){
+			i=grid_points[0]-2;
+			i1=grid_points[0]-1;
+			fac1=1.0/lhs[j][i][2];
+			lhs[j][i][3]=fac1*lhs[j][i][3];
+			lhs[j][i][4]=fac1*lhs[j][i][4];
+			for(m=0; m<3; m++){
+				rhs[k][j][i][m]=fac1*rhs[k][j][i][m];
+			}
+			lhs[j][i1][2]=lhs[j][i1][2]-lhs[j][i1][1]*lhs[j][i][3];
+			lhs[j][i1][3]=lhs[j][i1][3]-lhs[j][i1][1]*lhs[j][i][4];
+			for(m=0; m<3; m++){
+				rhs[k][j][i1][m]=rhs[k][j][i1][m]-lhs[j][i1][1]*rhs[k][j][i][m];
 			}
 			/*
 			 * ---------------------------------------------------------------------
-			 * do the u+c and the u-c factors                 
+			 * scale the last row immediately 
 			 * ---------------------------------------------------------------------
 			 */
-			for(j=1; j<=ny2; j++){
-				for(i=0; i<=grid_points[0]-3; i++){
-					i1=i+1;
-					i2=i+2;
-					m=3;
-					fac1=1.0/lhsp[j][i][2];
-					lhsp[j][i][3]=fac1*lhsp[j][i][3];
-					lhsp[j][i][4]=fac1*lhsp[j][i][4];
-					rhs[k][j][i][m]=fac1*rhs[k][j][i][m];
-					lhsp[j][i1][2]=lhsp[j][i1][2]-lhsp[j][i1][1]*lhsp[j][i][3];
-					lhsp[j][i1][3]=lhsp[j][i1][3]-lhsp[j][i1][1]*lhsp[j][i][4];
-					rhs[k][j][i1][m]=rhs[k][j][i1][m]-lhsp[j][i1][1]*rhs[k][j][i][m];
-					lhsp[j][i2][1]=lhsp[j][i2][1]-lhsp[j][i2][0]*lhsp[j][i][3];
-					lhsp[j][i2][2]=lhsp[j][i2][2]-lhsp[j][i2][0]*lhsp[j][i][4];
-					rhs[k][j][i2][m]=rhs[k][j][i2][m]-lhsp[j][i2][0]*rhs[k][j][i][m];
-					m=4;
-					fac1=1.0/lhsm[j][i][2];
-					lhsm[j][i][3]=fac1*lhsm[j][i][3];
-					lhsm[j][i][4]=fac1*lhsm[j][i][4];
-					rhs[k][j][i][m]=fac1*rhs[k][j][i][m];
-					lhsm[j][i1][2]=lhsm[j][i1][2]-lhsm[j][i1][1]*lhsm[j][i][3];
-					lhsm[j][i1][3]=lhsm[j][i1][3]-lhsm[j][i1][1]*lhsm[j][i][4];
-					rhs[k][j][i1][m]=rhs[k][j][i1][m]-lhsm[j][i1][1]*rhs[k][j][i][m];
-					lhsm[j][i2][1]=lhsm[j][i2][1]-lhsm[j][i2][0]*lhsm[j][i][3];
-					lhsm[j][i2][2]=lhsm[j][i2][2]-lhsm[j][i2][0]*lhsm[j][i][4];
-					rhs[k][j][i2][m]=rhs[k][j][i2][m]-lhsm[j][i2][0]*rhs[k][j][i][m];
-				}
+			fac2 = 1.0/lhs[j][i1][2];
+			for(m=0; m<3; m++){
+				rhs[k][j][i1][m]=fac2*rhs[k][j][i1][m];
 			}
-			/*
-			 * ---------------------------------------------------------------------
-			 * and again the last two rows separately
-			 * ---------------------------------------------------------------------
-			 */
-			for(j=1; j<=ny2; j++){
-				i=grid_points[0]-2;
-				i1=grid_points[0]-1;
+		}
+		/*
+		 * ---------------------------------------------------------------------
+		 * do the u+c and the u-c factors                 
+		 * ---------------------------------------------------------------------
+		 */
+		for(j=1; j<=ny2; j++){
+			for(i=0; i<=grid_points[0]-3; i++){
+				i1=i+1;
+				i2=i+2;
 				m=3;
 				fac1=1.0/lhsp[j][i][2];
 				lhsp[j][i][3]=fac1*lhsp[j][i][3];
@@ -2205,6 +2120,9 @@ void x_solve(){
 				lhsp[j][i1][2]=lhsp[j][i1][2]-lhsp[j][i1][1]*lhsp[j][i][3];
 				lhsp[j][i1][3]=lhsp[j][i1][3]-lhsp[j][i1][1]*lhsp[j][i][4];
 				rhs[k][j][i1][m]=rhs[k][j][i1][m]-lhsp[j][i1][1]*rhs[k][j][i][m];
+				lhsp[j][i2][1]=lhsp[j][i2][1]-lhsp[j][i2][0]*lhsp[j][i][3];
+				lhsp[j][i2][2]=lhsp[j][i2][2]-lhsp[j][i2][0]*lhsp[j][i][4];
+				rhs[k][j][i2][m]=rhs[k][j][i2][m]-lhsp[j][i2][0]*rhs[k][j][i][m];
 				m=4;
 				fac1=1.0/lhsm[j][i][2];
 				lhsm[j][i][3]=fac1*lhsm[j][i][3];
@@ -2213,54 +2131,82 @@ void x_solve(){
 				lhsm[j][i1][2]=lhsm[j][i1][2]-lhsm[j][i1][1]*lhsm[j][i][3];
 				lhsm[j][i1][3]=lhsm[j][i1][3]-lhsm[j][i1][1]*lhsm[j][i][4];
 				rhs[k][j][i1][m]=rhs[k][j][i1][m]-lhsm[j][i1][1]*rhs[k][j][i][m];
+				lhsm[j][i2][1]=lhsm[j][i2][1]-lhsm[j][i2][0]*lhsm[j][i][3];
+				lhsm[j][i2][2]=lhsm[j][i2][2]-lhsm[j][i2][0]*lhsm[j][i][4];
+				rhs[k][j][i2][m]=rhs[k][j][i2][m]-lhsm[j][i2][0]*rhs[k][j][i][m];
+			}
+		}
+		/*
+		 * ---------------------------------------------------------------------
+		 * and again the last two rows separately
+		 * ---------------------------------------------------------------------
+		 */
+		for(j=1; j<=ny2; j++){
+			i=grid_points[0]-2;
+			i1=grid_points[0]-1;
+			m=3;
+			fac1=1.0/lhsp[j][i][2];
+			lhsp[j][i][3]=fac1*lhsp[j][i][3];
+			lhsp[j][i][4]=fac1*lhsp[j][i][4];
+			rhs[k][j][i][m]=fac1*rhs[k][j][i][m];
+			lhsp[j][i1][2]=lhsp[j][i1][2]-lhsp[j][i1][1]*lhsp[j][i][3];
+			lhsp[j][i1][3]=lhsp[j][i1][3]-lhsp[j][i1][1]*lhsp[j][i][4];
+			rhs[k][j][i1][m]=rhs[k][j][i1][m]-lhsp[j][i1][1]*rhs[k][j][i][m];
+			m=4;
+			fac1=1.0/lhsm[j][i][2];
+			lhsm[j][i][3]=fac1*lhsm[j][i][3];
+			lhsm[j][i][4]=fac1*lhsm[j][i][4];
+			rhs[k][j][i][m]=fac1*rhs[k][j][i][m];
+			lhsm[j][i1][2]=lhsm[j][i1][2]-lhsm[j][i1][1]*lhsm[j][i][3];
+			lhsm[j][i1][3]=lhsm[j][i1][3]-lhsm[j][i1][1]*lhsm[j][i][4];
+			rhs[k][j][i1][m]=rhs[k][j][i1][m]-lhsm[j][i1][1]*rhs[k][j][i][m];
+			/*
+			 * ---------------------------------------------------------------------
+			 * scale the last row immediately
+			 * ---------------------------------------------------------------------
+			 */
+			rhs[k][j][i1][3]=rhs[k][j][i1][3]/lhsp[j][i1][2];
+			rhs[k][j][i1][4]=rhs[k][j][i1][4]/lhsm[j][i1][2];
+		}
+		/*
+		 * ---------------------------------------------------------------------
+		 * BACKSUBSTITUTION 
+		 * ---------------------------------------------------------------------
+		 */
+		for(j=1; j<=ny2; j++){
+			i=grid_points[0]-2;
+			i1=grid_points[0]-1;
+			for(m=0; m<3; m++){
+				rhs[k][j][i][m]=rhs[k][j][i][m]-lhs[j][i][3]*rhs[k][j][i1][m];
+			}
+			rhs[k][j][i][3]=rhs[k][j][i][3]-lhsp[j][i][3]*rhs[k][j][i1][3];
+			rhs[k][j][i][4]=rhs[k][j][i][4]-lhsm[j][i][3]*rhs[k][j][i1][4];
+		}
+		/*
+		 * ---------------------------------------------------------------------
+		 * the first three factors
+		 * ---------------------------------------------------------------------
+		 */
+		for(j=1; j<=ny2; j++){
+			for(i=grid_points[0]-3; i>=0; i--){
+				i1=i+1;
+				i2=i+2;
+				for(m=0; m<3; m++){
+					rhs[k][j][i][m]=rhs[k][j][i][m]- 
+						lhs[j][i][3]*rhs[k][j][i1][m]-
+						lhs[j][i][4]*rhs[k][j][i2][m];
+				}
 				/*
 				 * ---------------------------------------------------------------------
-				 * scale the last row immediately
+				 * and the remaining two
 				 * ---------------------------------------------------------------------
 				 */
-				rhs[k][j][i1][3]=rhs[k][j][i1][3]/lhsp[j][i1][2];
-				rhs[k][j][i1][4]=rhs[k][j][i1][4]/lhsm[j][i1][2];
-			}
-			/*
-			 * ---------------------------------------------------------------------
-			 * BACKSUBSTITUTION 
-			 * ---------------------------------------------------------------------
-			 */
-			for(j=1; j<=ny2; j++){
-				i=grid_points[0]-2;
-				i1=grid_points[0]-1;
-				for(m=0; m<3; m++){
-					rhs[k][j][i][m]=rhs[k][j][i][m]-lhs[j][i][3]*rhs[k][j][i1][m];
-				}
-				rhs[k][j][i][3]=rhs[k][j][i][3]-lhsp[j][i][3]*rhs[k][j][i1][3];
-				rhs[k][j][i][4]=rhs[k][j][i][4]-lhsm[j][i][3]*rhs[k][j][i1][4];
-			}
-			/*
-			 * ---------------------------------------------------------------------
-			 * the first three factors
-			 * ---------------------------------------------------------------------
-			 */
-			for(j=1; j<=ny2; j++){
-				for(i=grid_points[0]-3; i>=0; i--){
-					i1=i+1;
-					i2=i+2;
-					for(m=0; m<3; m++){
-						rhs[k][j][i][m]=rhs[k][j][i][m]- 
-							lhs[j][i][3]*rhs[k][j][i1][m]-
-							lhs[j][i][4]*rhs[k][j][i2][m];
-					}
-					/*
-					 * ---------------------------------------------------------------------
-					 * and the remaining two
-					 * ---------------------------------------------------------------------
-					 */
-					rhs[k][j][i][3]=rhs[k][j][i][3]- 
-						lhsp[j][i][3]*rhs[k][j][i1][3] -
-						lhsp[j][i][4]*rhs[k][j][i2][3];
-					rhs[k][j][i][4]=rhs[k][j][i][4]- 
-						lhsm[j][i][3]*rhs[k][j][i1][4]-
-						lhsm[j][i][4]*rhs[k][j][i2][4];
-				}
+				rhs[k][j][i][3]=rhs[k][j][i][3]- 
+					lhsp[j][i][3]*rhs[k][j][i1][3] -
+					lhsp[j][i][4]*rhs[k][j][i2][3];
+				rhs[k][j][i][4]=rhs[k][j][i][4]- 
+					lhsm[j][i][3]*rhs[k][j][i1][4]-
+					lhsm[j][i][4]*rhs[k][j][i2][4];
 			}
 		}
 	}
@@ -2287,140 +2233,112 @@ void y_solve(){
 	int thread_id = omp_get_thread_num();
 
 	if(timeron && thread_id==0){timer_start(T_YSOLVE);}
-	#pragma omp single
-	{
-		#pragma omp taskloop private(j, j1, m, fac1, fac2, i, ru1, j2)
-		for (k=1; k<=grid_points[2]-2; k++) {
-			double cv[PROBLEM_SIZE], rhoq[PROBLEM_SIZE];
-			double lhs[IMAXP+1][IMAXP+1][5];
-			double lhsp[IMAXP+1][IMAXP+1][5];
-			double lhsm[IMAXP+1][IMAXP+1][5];
-			for(i=1; i<=nx2; i++){
-				for(m=0; m<5; m++){
-					lhs[0][i][m]=0.0;
-					lhsp[0][i][m]=0.0;
-					lhsm[0][i][m]=0.0;
-					lhs[ny2+1][i][m]=0.0;
-					lhsp[ny2+1][i][m]=0.0;
-					lhsm[ny2+1][i][m]=0.0;
-				}
-				lhs[0][i][2]=1.0;
-				lhsp[0][i][2]=1.0;
-				lhsm[0][i][2]=1.0;
-				lhs[ny2+1][i][2]=1.0;
-				lhsp[ny2+1][i][2]=1.0;
-				lhsm[ny2+1][i][2]=1.0;
+	#pragma omp for schedule(runtime)
+	for(k=1; k<=grid_points[2]-2; k++){
+		double cv[PROBLEM_SIZE], rhoq[PROBLEM_SIZE];
+		double lhs[IMAXP+1][IMAXP+1][5];
+		double lhsp[IMAXP+1][IMAXP+1][5];
+		double lhsm[IMAXP+1][IMAXP+1][5];
+
+		for(i=1; i<=nx2; i++){
+			for(m=0; m<5; m++){
+				lhs[0][i][m]=0.0;
+				lhsp[0][i][m]=0.0;
+				lhsm[0][i][m]=0.0;
+				lhs[ny2+1][i][m]=0.0;
+				lhsp[ny2+1][i][m]=0.0;
+				lhsm[ny2+1][i][m]=0.0;
 			}
-			/*
-			 * ---------------------------------------------------------------------
-			 * computes the left hand side for the three y-factors   
-			 * ---------------------------------------------------------------------
-			 * first fill the lhs for the u-eigenvalue         
-			 * ---------------------------------------------------------------------
-			 */
+			lhs[0][i][2]=1.0;
+			lhsp[0][i][2]=1.0;
+			lhsm[0][i][2]=1.0;
+			lhs[ny2+1][i][2]=1.0;
+			lhsp[ny2+1][i][2]=1.0;
+			lhsm[ny2+1][i][2]=1.0;
+		}
+
+		/*
+		 * ---------------------------------------------------------------------
+		 * computes the left hand side for the three y-factors   
+		 * ---------------------------------------------------------------------
+		 * first fill the lhs for the u-eigenvalue         
+		 * ---------------------------------------------------------------------
+		 */
+		for(i=1; i<=grid_points[0]-2; i++){
+			for(j=0; j<=grid_points[1]-1; j++){
+				ru1=c3c4*rho_i[k][j][i];
+				cv[j]=vs[k][j][i];
+				rhoq[j]=max(max(dy3+con43*ru1, dy5+c1c5*ru1), max(dymax+ru1, dy1));
+			}
+			for(j=1; j<=grid_points[1]-2; j++){
+				lhs[j][i][0]=0.0;
+				lhs[j][i][1]=-dtty2*cv[j-1]-dtty1*rhoq[j-1];
+				lhs[j][i][2]=1.0+c2dtty1*rhoq[j];
+				lhs[j][i][3]=dtty2*cv[j+1]-dtty1*rhoq[j+1];
+				lhs[j][i][4]=0.0;
+			}
+		}
+		/*
+		 * ---------------------------------------------------------------------
+		 * add fourth order dissipation                             
+		 * ---------------------------------------------------------------------
+		 */
+		for(i=1; i<=grid_points[0]-2; i++){
+			j=1;
+			lhs[j][i][2]=lhs[j][i][2]+comz5;
+			lhs[j][i][3]=lhs[j][i][3]-comz4;
+			lhs[j][i][4]=lhs[j][i][4]+comz1;
+			lhs[j+1][i][1]=lhs[j+1][i][1]-comz4;
+			lhs[j+1][i][2]=lhs[j+1][i][2]+comz6;
+			lhs[j+1][i][3]=lhs[j+1][i][3]-comz4;
+			lhs[j+1][i][4]=lhs[j+1][i][4]+comz1;
+		}
+		for(j=3; j<=grid_points[1]-4; j++){
 			for(i=1; i<=grid_points[0]-2; i++){
-				for(j=0; j<=grid_points[1]-1; j++){
-					ru1=c3c4*rho_i[k][j][i];
-					cv[j]=vs[k][j][i];
-					rhoq[j]=max(max(dy3+con43*ru1, dy5+c1c5*ru1), max(dymax+ru1, dy1));
-				}
-				for(j=1; j<=grid_points[1]-2; j++){
-					lhs[j][i][0]=0.0;
-					lhs[j][i][1]=-dtty2*cv[j-1]-dtty1*rhoq[j-1];
-					lhs[j][i][2]=1.0+c2dtty1*rhoq[j];
-					lhs[j][i][3]=dtty2*cv[j+1]-dtty1*rhoq[j+1];
-					lhs[j][i][4]=0.0;
-				}
-			}
-			/*
-			 * ---------------------------------------------------------------------
-			 * add fourth order dissipation                             
-			 * ---------------------------------------------------------------------
-			 */
-			for(i=1; i<=grid_points[0]-2; i++){
-				j=1;
-				lhs[j][i][2]=lhs[j][i][2]+comz5;
-				lhs[j][i][3]=lhs[j][i][3]-comz4;
-				lhs[j][i][4]=lhs[j][i][4]+comz1;
-				lhs[j+1][i][1]=lhs[j+1][i][1]-comz4;
-				lhs[j+1][i][2]=lhs[j+1][i][2]+comz6;
-				lhs[j+1][i][3]=lhs[j+1][i][3]-comz4;
-				lhs[j+1][i][4]=lhs[j+1][i][4]+comz1;
-			}
-			for(j=3; j<=grid_points[1]-4; j++){
-				for(i=1; i<=grid_points[0]-2; i++){
-					lhs[j][i][0]=lhs[j][i][0]+comz1;
-					lhs[j][i][1]=lhs[j][i][1]-comz4;
-					lhs[j][i][2]=lhs[j][i][2]+comz6;
-					lhs[j][i][3]=lhs[j][i][3]-comz4;
-					lhs[j][i][4]=lhs[j][i][4]+comz1;
-				}
-			}
-			for(i=1; i<=grid_points[0]-2; i++){
-				j=grid_points[1]-3;
 				lhs[j][i][0]=lhs[j][i][0]+comz1;
 				lhs[j][i][1]=lhs[j][i][1]-comz4;
 				lhs[j][i][2]=lhs[j][i][2]+comz6;
 				lhs[j][i][3]=lhs[j][i][3]-comz4;
-				lhs[j+1][i][0]=lhs[j+1][i][0]+comz1;
-				lhs[j+1][i][1]=lhs[j+1][i][1]-comz4;
-				lhs[j+1][i][2]=lhs[j+1][i][2]+comz5;
+				lhs[j][i][4]=lhs[j][i][4]+comz1;
 			}
-			/*
-			 * ---------------------------------------------------------------------
-			 * subsequently, do the other two factors                    
-			 * ---------------------------------------------------------------------
-			 */
-			for(j=1; j<=grid_points[1]-2; j++){
-				for(i=1; i<=grid_points[0]-2; i++){
-					lhsp[j][i][0]=lhs[j][i][0];
-					lhsp[j][i][1]=lhs[j][i][1]-dtty2*speed[k][j-1][i];
-					lhsp[j][i][2]=lhs[j][i][2];
-					lhsp[j][i][3]=lhs[j][i][3]+dtty2*speed[k][j+1][i];
-					lhsp[j][i][4]=lhs[j][i][4];
-					lhsm[j][i][0]=lhs[j][i][0];
-					lhsm[j][i][1]=lhs[j][i][1]+dtty2*speed[k][j-1][i];
-					lhsm[j][i][2]=lhs[j][i][2];
-					lhsm[j][i][3]=lhs[j][i][3]-dtty2*speed[k][j+1][i];
-					lhsm[j][i][4]=lhs[j][i][4];
-				}
+		}
+		for(i=1; i<=grid_points[0]-2; i++){
+			j=grid_points[1]-3;
+			lhs[j][i][0]=lhs[j][i][0]+comz1;
+			lhs[j][i][1]=lhs[j][i][1]-comz4;
+			lhs[j][i][2]=lhs[j][i][2]+comz6;
+			lhs[j][i][3]=lhs[j][i][3]-comz4;
+			lhs[j+1][i][0]=lhs[j+1][i][0]+comz1;
+			lhs[j+1][i][1]=lhs[j+1][i][1]-comz4;
+			lhs[j+1][i][2]=lhs[j+1][i][2]+comz5;
+		}
+		/*
+		 * ---------------------------------------------------------------------
+		 * subsequently, do the other two factors                    
+		 * ---------------------------------------------------------------------
+		 */
+		for(j=1; j<=grid_points[1]-2; j++){
+			for(i=1; i<=grid_points[0]-2; i++){
+				lhsp[j][i][0]=lhs[j][i][0];
+				lhsp[j][i][1]=lhs[j][i][1]-dtty2*speed[k][j-1][i];
+				lhsp[j][i][2]=lhs[j][i][2];
+				lhsp[j][i][3]=lhs[j][i][3]+dtty2*speed[k][j+1][i];
+				lhsp[j][i][4]=lhs[j][i][4];
+				lhsm[j][i][0]=lhs[j][i][0];
+				lhsm[j][i][1]=lhs[j][i][1]+dtty2*speed[k][j-1][i];
+				lhsm[j][i][2]=lhs[j][i][2];
+				lhsm[j][i][3]=lhs[j][i][3]-dtty2*speed[k][j+1][i];
+				lhsm[j][i][4]=lhs[j][i][4];
 			}
-			/*
-			 * ---------------------------------------------------------------------
-			 * FORWARD ELIMINATION  
-			 * ---------------------------------------------------------------------
-			 */
-			for(j=0; j<=grid_points[1]-3; j++){
-				j1=j+1;
-				j2=j+2;
-				for(i=1; i<=grid_points[0]-2; i++){
-					fac1=1.0/lhs[j][i][2];
-					lhs[j][i][3]=fac1*lhs[j][i][3];
-					lhs[j][i][4]=fac1*lhs[j][i][4];
-					for(m=0; m<3; m++){
-						rhs[k][j][i][m]=fac1*rhs[k][j][i][m];
-					}
-					lhs[j1][i][2]=lhs[j1][i][2]-lhs[j1][i][1]*lhs[j][i][3];
-					lhs[j1][i][3]=lhs[j1][i][3]-lhs[j1][i][1]*lhs[j][i][4];
-					for(m=0; m<3; m++){
-						rhs[k][j1][i][m]=rhs[k][j1][i][m]-lhs[j1][i][1]*rhs[k][j][i][m];
-					}
-					lhs[j2][i][1]=lhs[j2][i][1]-lhs[j2][i][0]*lhs[j][i][3];
-					lhs[j2][i][2]=lhs[j2][i][2]-lhs[j2][i][0]*lhs[j][i][4];
-					for(m=0; m<3; m++){
-						rhs[k][j2][i][m]=rhs[k][j2][i][m]-lhs[j2][i][0]*rhs[k][j][i][m];
-					}
-				}
-			}
-			/*
-			 * ---------------------------------------------------------------------
-			 * the last two rows in this grid block are a bit different, 
-			 * since they do not have two more rows available for the
-			 * elimination of off-diagonal entries
-			 * ---------------------------------------------------------------------
-			 */
-			j=grid_points[1]-2;
-			j1=grid_points[1]-1;
+		}
+		/*
+		 * ---------------------------------------------------------------------
+		 * FORWARD ELIMINATION  
+		 * ---------------------------------------------------------------------
+		 */
+		for(j=0; j<=grid_points[1]-3; j++){
+			j1=j+1;
+			j2=j+2;
 			for(i=1; i<=grid_points[0]-2; i++){
 				fac1=1.0/lhs[j][i][2];
 				lhs[j][i][3]=fac1*lhs[j][i][3];
@@ -2433,56 +2351,52 @@ void y_solve(){
 				for(m=0; m<3; m++){
 					rhs[k][j1][i][m]=rhs[k][j1][i][m]-lhs[j1][i][1]*rhs[k][j][i][m];
 				}
-				/*
-				 * ---------------------------------------------------------------------
-				 * scale the last row immediately 
-				 * ---------------------------------------------------------------------
-				 */
-				fac2 = 1.0/lhs[j1][i][2];
+				lhs[j2][i][1]=lhs[j2][i][1]-lhs[j2][i][0]*lhs[j][i][3];
+				lhs[j2][i][2]=lhs[j2][i][2]-lhs[j2][i][0]*lhs[j][i][4];
 				for(m=0; m<3; m++){
-					rhs[k][j1][i][m]=fac2*rhs[k][j1][i][m];
+					rhs[k][j2][i][m]=rhs[k][j2][i][m]-lhs[j2][i][0]*rhs[k][j][i][m];
 				}
+			}
+		}
+		/*
+		 * ---------------------------------------------------------------------
+		 * the last two rows in this grid block are a bit different, 
+		 * since they do not have two more rows available for the
+		 * elimination of off-diagonal entries
+		 * ---------------------------------------------------------------------
+		 */
+		j=grid_points[1]-2;
+		j1=grid_points[1]-1;
+		for(i=1; i<=grid_points[0]-2; i++){
+			fac1=1.0/lhs[j][i][2];
+			lhs[j][i][3]=fac1*lhs[j][i][3];
+			lhs[j][i][4]=fac1*lhs[j][i][4];
+			for(m=0; m<3; m++){
+				rhs[k][j][i][m]=fac1*rhs[k][j][i][m];
+			}
+			lhs[j1][i][2]=lhs[j1][i][2]-lhs[j1][i][1]*lhs[j][i][3];
+			lhs[j1][i][3]=lhs[j1][i][3]-lhs[j1][i][1]*lhs[j][i][4];
+			for(m=0; m<3; m++){
+				rhs[k][j1][i][m]=rhs[k][j1][i][m]-lhs[j1][i][1]*rhs[k][j][i][m];
 			}
 			/*
 			 * ---------------------------------------------------------------------
-			 * do the u+c and the u-c factors                 
+			 * scale the last row immediately 
 			 * ---------------------------------------------------------------------
 			 */
-			for(j=0; j<=grid_points[1]-3; j++){
-				j1=j+1;
-				j2=j+2;
-				for(i=1; i<=grid_points[0]-2; i++){
-					m=3;
-					fac1=1.0/lhsp[j][i][2];
-					lhsp[j][i][3]=fac1*lhsp[j][i][3];
-					lhsp[j][i][4]=fac1*lhsp[j][i][4];
-					rhs[k][j][i][m]=fac1*rhs[k][j][i][m];
-					lhsp[j1][i][2]=lhsp[j1][i][2]-lhsp[j1][i][1]*lhsp[j][i][3];
-					lhsp[j1][i][3]=lhsp[j1][i][3]-lhsp[j1][i][1]*lhsp[j][i][4];
-					rhs[k][j1][i][m]=rhs[k][j1][i][m]-lhsp[j1][i][1]*rhs[k][j][i][m];
-					lhsp[j2][i][1]=lhsp[j2][i][1]-lhsp[j2][i][0]*lhsp[j][i][3];
-					lhsp[j2][i][2]=lhsp[j2][i][2]-lhsp[j2][i][0]*lhsp[j][i][4];
-					rhs[k][j2][i][m]=rhs[k][j2][i][m]-lhsp[j2][i][0]*rhs[k][j][i][m];
-					m=4;
-					fac1=1.0/lhsm[j][i][2];
-					lhsm[j][i][3]=fac1*lhsm[j][i][3];
-					lhsm[j][i][4]=fac1*lhsm[j][i][4];
-					rhs[k][j][i][m]=fac1*rhs[k][j][i][m];
-					lhsm[j1][i][2]=lhsm[j1][i][2]-lhsm[j1][i][1]*lhsm[j][i][3];
-					lhsm[j1][i][3]=lhsm[j1][i][3]-lhsm[j1][i][1]*lhsm[j][i][4];
-					rhs[k][j1][i][m]=rhs[k][j1][i][m]-lhsm[j1][i][1]*rhs[k][j][i][m];
-					lhsm[j2][i][1]=lhsm[j2][i][1]-lhsm[j2][i][0]*lhsm[j][i][3];
-					lhsm[j2][i][2]=lhsm[j2][i][2]-lhsm[j2][i][0]*lhsm[j][i][4];
-					rhs[k][j2][i][m]=rhs[k][j2][i][m]-lhsm[j2][i][0]*rhs[k][j][i][m];
-				}
+			fac2 = 1.0/lhs[j1][i][2];
+			for(m=0; m<3; m++){
+				rhs[k][j1][i][m]=fac2*rhs[k][j1][i][m];
 			}
-			/*
-			 * ---------------------------------------------------------------------
-			 * and again the last two rows separately
-			 * ---------------------------------------------------------------------
-			 */
-			j=grid_points[1]-2;
-			j1=grid_points[1]-1;
+		}
+		/*
+		 * ---------------------------------------------------------------------
+		 * do the u+c and the u-c factors                 
+		 * ---------------------------------------------------------------------
+		 */
+		for(j=0; j<=grid_points[1]-3; j++){
+			j1=j+1;
+			j2=j+2;
 			for(i=1; i<=grid_points[0]-2; i++){
 				m=3;
 				fac1=1.0/lhsp[j][i][2];
@@ -2492,6 +2406,9 @@ void y_solve(){
 				lhsp[j1][i][2]=lhsp[j1][i][2]-lhsp[j1][i][1]*lhsp[j][i][3];
 				lhsp[j1][i][3]=lhsp[j1][i][3]-lhsp[j1][i][1]*lhsp[j][i][4];
 				rhs[k][j1][i][m]=rhs[k][j1][i][m]-lhsp[j1][i][1]*rhs[k][j][i][m];
+				lhsp[j2][i][1]=lhsp[j2][i][1]-lhsp[j2][i][0]*lhsp[j][i][3];
+				lhsp[j2][i][2]=lhsp[j2][i][2]-lhsp[j2][i][0]*lhsp[j][i][4];
+				rhs[k][j2][i][m]=rhs[k][j2][i][m]-lhsp[j2][i][0]*rhs[k][j][i][m];
 				m=4;
 				fac1=1.0/lhsm[j][i][2];
 				lhsm[j][i][3]=fac1*lhsm[j][i][3];
@@ -2500,54 +2417,82 @@ void y_solve(){
 				lhsm[j1][i][2]=lhsm[j1][i][2]-lhsm[j1][i][1]*lhsm[j][i][3];
 				lhsm[j1][i][3]=lhsm[j1][i][3]-lhsm[j1][i][1]*lhsm[j][i][4];
 				rhs[k][j1][i][m]=rhs[k][j1][i][m]-lhsm[j1][i][1]*rhs[k][j][i][m];
-				/*
-				 * ---------------------------------------------------------------------
-				 * scale the last row immediately 
-				 * ---------------------------------------------------------------------
-				 */
-				rhs[k][j1][i][3]=rhs[k][j1][i][3]/lhsp[j1][i][2];
-				rhs[k][j1][i][4]=rhs[k][j1][i][4]/lhsm[j1][i][2];
+				lhsm[j2][i][1]=lhsm[j2][i][1]-lhsm[j2][i][0]*lhsm[j][i][3];
+				lhsm[j2][i][2]=lhsm[j2][i][2]-lhsm[j2][i][0]*lhsm[j][i][4];
+				rhs[k][j2][i][m]=rhs[k][j2][i][m]-lhsm[j2][i][0]*rhs[k][j][i][m];
 			}
+		}
+		/*
+		 * ---------------------------------------------------------------------
+		 * and again the last two rows separately
+		 * ---------------------------------------------------------------------
+		 */
+		j=grid_points[1]-2;
+		j1=grid_points[1]-1;
+		for(i=1; i<=grid_points[0]-2; i++){
+			m=3;
+			fac1=1.0/lhsp[j][i][2];
+			lhsp[j][i][3]=fac1*lhsp[j][i][3];
+			lhsp[j][i][4]=fac1*lhsp[j][i][4];
+			rhs[k][j][i][m]=fac1*rhs[k][j][i][m];
+			lhsp[j1][i][2]=lhsp[j1][i][2]-lhsp[j1][i][1]*lhsp[j][i][3];
+			lhsp[j1][i][3]=lhsp[j1][i][3]-lhsp[j1][i][1]*lhsp[j][i][4];
+			rhs[k][j1][i][m]=rhs[k][j1][i][m]-lhsp[j1][i][1]*rhs[k][j][i][m];
+			m=4;
+			fac1=1.0/lhsm[j][i][2];
+			lhsm[j][i][3]=fac1*lhsm[j][i][3];
+			lhsm[j][i][4]=fac1*lhsm[j][i][4];
+			rhs[k][j][i][m]=fac1*rhs[k][j][i][m];
+			lhsm[j1][i][2]=lhsm[j1][i][2]-lhsm[j1][i][1]*lhsm[j][i][3];
+			lhsm[j1][i][3]=lhsm[j1][i][3]-lhsm[j1][i][1]*lhsm[j][i][4];
+			rhs[k][j1][i][m]=rhs[k][j1][i][m]-lhsm[j1][i][1]*rhs[k][j][i][m];
 			/*
 			 * ---------------------------------------------------------------------
-			 * BACKSUBSTITUTION 
+			 * scale the last row immediately 
 			 * ---------------------------------------------------------------------
 			 */
-			j=grid_points[1]-2;
-			j1=grid_points[1]-1;
+			rhs[k][j1][i][3]=rhs[k][j1][i][3]/lhsp[j1][i][2];
+			rhs[k][j1][i][4]=rhs[k][j1][i][4]/lhsm[j1][i][2];
+		}
+		/*
+		 * ---------------------------------------------------------------------
+		 * BACKSUBSTITUTION 
+		 * ---------------------------------------------------------------------
+		 */
+		j=grid_points[1]-2;
+		j1=grid_points[1]-1;
+		for(i=1; i<=grid_points[0]-2; i++){
+			for(m=0; m<3; m++){
+				rhs[k][j][i][m]=rhs[k][j][i][m]-lhs[j][i][3]*rhs[k][j1][i][m];
+			}
+			rhs[k][j][i][3]=rhs[k][j][i][3]-lhsp[j][i][3]*rhs[k][j1][i][3];
+			rhs[k][j][i][4]=rhs[k][j][i][4]-lhsm[j][i][3]*rhs[k][j1][i][4];
+		}
+		/*
+		 * ---------------------------------------------------------------------
+		 * the first three factors
+		 * ---------------------------------------------------------------------
+		 */
+		for(j=grid_points[1]-3; j>=0; j--){
+			j1=j+1;
+			j2=j+2;
 			for(i=1; i<=grid_points[0]-2; i++){
 				for(m=0; m<3; m++){
-					rhs[k][j][i][m]=rhs[k][j][i][m]-lhs[j][i][3]*rhs[k][j1][i][m];
+					rhs[k][j][i][m]=rhs[k][j][i][m]- 
+						lhs[j][i][3]*rhs[k][j1][i][m]-
+						lhs[j][i][4]*rhs[k][j2][i][m];
 				}
-				rhs[k][j][i][3]=rhs[k][j][i][3]-lhsp[j][i][3]*rhs[k][j1][i][3];
-				rhs[k][j][i][4]=rhs[k][j][i][4]-lhsm[j][i][3]*rhs[k][j1][i][4];
-			}
-			/*
-			 * ---------------------------------------------------------------------
-			 * the first three factors
-			 * ---------------------------------------------------------------------
-			 */
-			for(j=grid_points[1]-3; j>=0; j--){
-				j1=j+1;
-				j2=j+2;
-				for(i=1; i<=grid_points[0]-2; i++){
-					for(m=0; m<3; m++){
-						rhs[k][j][i][m]=rhs[k][j][i][m]- 
-							lhs[j][i][3]*rhs[k][j1][i][m]-
-							lhs[j][i][4]*rhs[k][j2][i][m];
-					}
-					/*
-					 * ---------------------------------------------------------------------
-					 * and the remaining two
-					 * ---------------------------------------------------------------------
-					 */
-					rhs[k][j][i][3]=rhs[k][j][i][3]- 
-						lhsp[j][i][3]*rhs[k][j1][i][3]-
-						lhsp[j][i][4]*rhs[k][j2][i][3];
-					rhs[k][j][i][4]=rhs[k][j][i][4]- 
-						lhsm[j][i][3]*rhs[k][j1][i][4]-
-						lhsm[j][i][4]*rhs[k][j2][i][4];
-				}
+				/*
+				 * ---------------------------------------------------------------------
+				 * and the remaining two
+				 * ---------------------------------------------------------------------
+				 */
+				rhs[k][j][i][3]=rhs[k][j][i][3]- 
+					lhsp[j][i][3]*rhs[k][j1][i][3]-
+					lhsp[j][i][4]*rhs[k][j2][i][3];
+				rhs[k][j][i][4]=rhs[k][j][i][4]- 
+					lhsm[j][i][3]*rhs[k][j1][i][4]-
+					lhsm[j][i][4]*rhs[k][j2][i][4];
 			}
 		}
 	}
@@ -2569,142 +2514,114 @@ void z_solve(){
 	int thread_id = omp_get_thread_num();
 	
 	if(timeron && thread_id==0){timer_start(T_ZSOLVE);}
-	#pragma omp single
-	{
-		#pragma omp taskloop private(k, m, fac1, fac2, k1, i, ru1, k2)
-		for (j=1; j<=ny2; j++) {
-			double cv[PROBLEM_SIZE], rhos[PROBLEM_SIZE];
-			double lhs[IMAXP+1][IMAXP+1][5];
-			double lhsp[IMAXP+1][IMAXP+1][5];
-			double lhsm[IMAXP+1][IMAXP+1][5];
-			for(i=1; i<=nx2; i++){
-				for(m=0; m<5; m++){
-					lhs[0][i][m]=0.0;
-					lhsp[0][i][m]=0.0;
-					lhsm[0][i][m]=0.0;
-					lhs[nz2+1][i][m]=0.0;
-					lhsp[nz2+1][i][m]=0.0;
-					lhsm[nz2+1][i][m]=0.0;
-				}
-				lhs[0][i][2]=1.0;
-				lhsp[0][i][2]=1.0;
-				lhsm[0][i][2]=1.0;
-				lhs[nz2+1][i][2]=1.0;
-				lhsp[nz2+1][i][2]=1.0;
-				lhsm[nz2+1][i][2]=1.0;
+	#pragma omp for schedule(runtime)
+	for(j=1; j<=ny2; j++){
+		double cv[PROBLEM_SIZE], rhos[PROBLEM_SIZE];
+		double lhs[IMAXP+1][IMAXP+1][5];
+		double lhsp[IMAXP+1][IMAXP+1][5];
+		double lhsm[IMAXP+1][IMAXP+1][5];
+
+		for(i=1; i<=nx2; i++){
+			for(m=0; m<5; m++){
+				lhs[0][i][m]=0.0;
+				lhsp[0][i][m]=0.0;
+				lhsm[0][i][m]=0.0;
+				lhs[nz2+1][i][m]=0.0;
+				lhsp[nz2+1][i][m]=0.0;
+				lhsm[nz2+1][i][m]=0.0;
 			}
-			/*
-			 * ---------------------------------------------------------------------
-			 * computes the left hand side for the three z-factors   
-			 * ---------------------------------------------------------------------
-			 * first fill the lhs for the u-eigenvalue                          
-			 * ---------------------------------------------------------------------
-			 */
-			for(i=1; i<=nx2; i++){
-				for(k=0; k<=nz2+1; k++){
-					ru1=c3c4*rho_i[k][j][i];
-					cv[k]=ws[k][j][i];
-					rhos[k]=max(max(dz4+con43*ru1, dz5+c1c5*ru1), max(dzmax+ru1, dz1));
-				}
-				for(k=1; k<=nz2; k++){
-					lhs[k][i][0]=0.0;
-					lhs[k][i][1]=-dttz2*cv[k-1]-dttz1*rhos[k-1];
-					lhs[k][i][2]=1.0+c2dttz1*rhos[k];
-					lhs[k][i][3]=dttz2*cv[k+1]-dttz1*rhos[k+1];
-					lhs[k][i][4]=0.0;
-				}
+			lhs[0][i][2]=1.0;
+			lhsp[0][i][2]=1.0;
+			lhsm[0][i][2]=1.0;
+			lhs[nz2+1][i][2]=1.0;
+			lhsp[nz2+1][i][2]=1.0;
+			lhsm[nz2+1][i][2]=1.0;
+		}
+
+		/*
+		 * ---------------------------------------------------------------------
+		 * computes the left hand side for the three z-factors   
+		 * ---------------------------------------------------------------------
+		 * first fill the lhs for the u-eigenvalue                          
+		 * ---------------------------------------------------------------------
+		 */
+		for(i=1; i<=nx2; i++){
+			for(k=0; k<=nz2+1; k++){
+				ru1=c3c4*rho_i[k][j][i];
+				cv[k]=ws[k][j][i];
+				rhos[k]=max(max(dz4+con43*ru1, dz5+c1c5*ru1), max(dzmax+ru1, dz1));
 			}
-			/*
-			 * ---------------------------------------------------------------------
-			 * add fourth order dissipation                                  
-			 * ---------------------------------------------------------------------
-			 */
-			for(i=1; i<=nx2; i++){
-				k=1;
-				lhs[k][i][2]=lhs[k][i][2]+comz5;
-				lhs[k][i][3]=lhs[k][i][3]-comz4;
-				lhs[k][i][4]=lhs[k][i][4]+comz1;
-				k=2;
-				lhs[k][i][1]=lhs[k][i][1]-comz4;
-				lhs[k][i][2]=lhs[k][i][2]+comz6;
-				lhs[k][i][3]=lhs[k][i][3]-comz4;
-				lhs[k][i][4]=lhs[k][i][4]+comz1;
-			}
-			for(k=3; k<=nz2-2; k++){
-				for(i=1; i<=nx2; i++){
-					lhs[k][i][0]=lhs[k][i][0]+comz1;
-					lhs[k][i][1]=lhs[k][i][1]-comz4;
-					lhs[k][i][2]=lhs[k][i][2]+comz6;
-					lhs[k][i][3]=lhs[k][i][3]-comz4;
-					lhs[k][i][4]=lhs[k][i][4]+comz1;
-				}
-			}
-			for(i=1; i<=nx2; i++){
-				k=nz2-1;
-				lhs[k][i][0]=lhs[k][i][0]+comz1;
-				lhs[k][i][1]=lhs[k][i][1]-comz4;
-				lhs[k][i][2]=lhs[k][i][2]+comz6;
-				lhs[k][i][3]=lhs[k][i][3]-comz4;
-				k=nz2;
-				lhs[k][i][0]=lhs[k][i][0]+comz1;
-				lhs[k][i][1]=lhs[k][i][1]-comz4;
-				lhs[k][i][2]=lhs[k][i][2]+comz5;
-			}
-			/*
-			 * ---------------------------------------------------------------------
-			 * subsequently, fill the other factors (u+c), (u-c) 
-			 * ---------------------------------------------------------------------
-			 */
 			for(k=1; k<=nz2; k++){
-				for(i=1; i<=nx2; i++){
-					lhsp[k][i][0]=lhs[k][i][0];
-					lhsp[k][i][1]=lhs[k][i][1]-dttz2*speed[k-1][j][i];
-					lhsp[k][i][2]=lhs[k][i][2];
-					lhsp[k][i][3]=lhs[k][i][3]+dttz2*speed[k+1][j][i];
-					lhsp[k][i][4]=lhs[k][i][4];
-					lhsm[k][i][0]=lhs[k][i][0];
-					lhsm[k][i][1]=lhs[k][i][1]+dttz2*speed[k-1][j][i];
-					lhsm[k][i][2]=lhs[k][i][2];
-					lhsm[k][i][3]=lhs[k][i][3]-dttz2*speed[k+1][j][i];
-					lhsm[k][i][4]=lhs[k][i][4];
-				}
+				lhs[k][i][0]=0.0;
+				lhs[k][i][1]=-dttz2*cv[k-1]-dttz1*rhos[k-1];
+				lhs[k][i][2]=1.0+c2dttz1*rhos[k];
+				lhs[k][i][3]=dttz2*cv[k+1]-dttz1*rhos[k+1];
+				lhs[k][i][4]=0.0;
 			}
-			/*
-			 * ---------------------------------------------------------------------
-			 * FORWARD ELIMINATION  
-			 * ---------------------------------------------------------------------
-			 */
-			for(k=0; k<=grid_points[2]-3; k++){
-				k1=k+1;
-				k2=k+2;
-				for(i=1; i<=nx2; i++){
-					fac1=1.0/lhs[k][i][2];
-					lhs[k][i][3]=fac1*lhs[k][i][3];
-					lhs[k][i][4]=fac1*lhs[k][i][4];
-					for(m=0; m<3; m++){
-						rhs[k][j][i][m]=fac1*rhs[k][j][i][m];
-					}
-					lhs[k1][i][2]=lhs[k1][i][2]-lhs[k1][i][1]*lhs[k][i][3];
-					lhs[k1][i][3]=lhs[k1][i][3]-lhs[k1][i][1]*lhs[k][i][4];
-					for(m=0; m<3; m++){
-						rhs[k1][j][i][m]=rhs[k1][j][i][m]-lhs[k1][i][1]*rhs[k][j][i][m];
-					}
-					lhs[k2][i][1]=lhs[k2][i][1]-lhs[k2][i][0]*lhs[k][i][3];
-					lhs[k2][i][2]=lhs[k2][i][2]-lhs[k2][i][0]*lhs[k][i][4];
-					for(m=0; m<3; m++){
-						rhs[k2][j][i][m]=rhs[k2][j][i][m]-lhs[k2][i][0]*rhs[k][j][i][m];
-					}
-				}
+		}
+		/*
+		 * ---------------------------------------------------------------------
+		 * add fourth order dissipation                                  
+		 * ---------------------------------------------------------------------
+		 */
+		for(i=1; i<=nx2; i++){
+			k=1;
+			lhs[k][i][2]=lhs[k][i][2]+comz5;
+			lhs[k][i][3]=lhs[k][i][3]-comz4;
+			lhs[k][i][4]=lhs[k][i][4]+comz1;
+			k=2;
+			lhs[k][i][1]=lhs[k][i][1]-comz4;
+			lhs[k][i][2]=lhs[k][i][2]+comz6;
+			lhs[k][i][3]=lhs[k][i][3]-comz4;
+			lhs[k][i][4]=lhs[k][i][4]+comz1;
+		}
+		for(k=3; k<=nz2-2; k++){
+			for(i=1; i<=nx2; i++){
+				lhs[k][i][0]=lhs[k][i][0]+comz1;
+				lhs[k][i][1]=lhs[k][i][1]-comz4;
+				lhs[k][i][2]=lhs[k][i][2]+comz6;
+				lhs[k][i][3]=lhs[k][i][3]-comz4;
+				lhs[k][i][4]=lhs[k][i][4]+comz1;
 			}
-			/*
-			 * ---------------------------------------------------------------------
-			 * the last two rows in this grid block are a bit different, 
-			 * since they do not have two more rows available for the
-			 * elimination of off-diagonal entries
-			 * ---------------------------------------------------------------------
-			 */
-			k=grid_points[2]-2;
-			k1=grid_points[2]-1;
+		}
+		for(i=1; i<=nx2; i++){
+			k=nz2-1;
+			lhs[k][i][0]=lhs[k][i][0]+comz1;
+			lhs[k][i][1]=lhs[k][i][1]-comz4;
+			lhs[k][i][2]=lhs[k][i][2]+comz6;
+			lhs[k][i][3]=lhs[k][i][3]-comz4;
+			k=nz2;
+			lhs[k][i][0]=lhs[k][i][0]+comz1;
+			lhs[k][i][1]=lhs[k][i][1]-comz4;
+			lhs[k][i][2]=lhs[k][i][2]+comz5;
+		}
+		/*
+		 * ---------------------------------------------------------------------
+		 * subsequently, fill the other factors (u+c), (u-c) 
+		 * ---------------------------------------------------------------------
+		 */
+		for(k=1; k<=nz2; k++){
+			for(i=1; i<=nx2; i++){
+				lhsp[k][i][0]=lhs[k][i][0];
+				lhsp[k][i][1]=lhs[k][i][1]-dttz2*speed[k-1][j][i];
+				lhsp[k][i][2]=lhs[k][i][2];
+				lhsp[k][i][3]=lhs[k][i][3]+dttz2*speed[k+1][j][i];
+				lhsp[k][i][4]=lhs[k][i][4];
+				lhsm[k][i][0]=lhs[k][i][0];
+				lhsm[k][i][1]=lhs[k][i][1]+dttz2*speed[k-1][j][i];
+				lhsm[k][i][2]=lhs[k][i][2];
+				lhsm[k][i][3]=lhs[k][i][3]-dttz2*speed[k+1][j][i];
+				lhsm[k][i][4]=lhs[k][i][4];
+			}
+		}
+		/*
+		 * ---------------------------------------------------------------------
+		 * FORWARD ELIMINATION  
+		 * ---------------------------------------------------------------------
+		 */
+		for(k=0; k<=grid_points[2]-3; k++){
+			k1=k+1;
+			k2=k+2;
 			for(i=1; i<=nx2; i++){
 				fac1=1.0/lhs[k][i][2];
 				lhs[k][i][3]=fac1*lhs[k][i][3];
@@ -2717,56 +2634,52 @@ void z_solve(){
 				for(m=0; m<3; m++){
 					rhs[k1][j][i][m]=rhs[k1][j][i][m]-lhs[k1][i][1]*rhs[k][j][i][m];
 				}
-				/*
-				 * ---------------------------------------------------------------------
-				 * scale the last row immediately
-				 * ---------------------------------------------------------------------
-				 */
-				fac2=1.0/lhs[k1][i][2];
+				lhs[k2][i][1]=lhs[k2][i][1]-lhs[k2][i][0]*lhs[k][i][3];
+				lhs[k2][i][2]=lhs[k2][i][2]-lhs[k2][i][0]*lhs[k][i][4];
 				for(m=0; m<3; m++){
-					rhs[k1][j][i][m]=fac2*rhs[k1][j][i][m];
+					rhs[k2][j][i][m]=rhs[k2][j][i][m]-lhs[k2][i][0]*rhs[k][j][i][m];
 				}
+			}
+		}
+		/*
+		 * ---------------------------------------------------------------------
+		 * the last two rows in this grid block are a bit different, 
+		 * since they do not have two more rows available for the
+		 * elimination of off-diagonal entries
+		 * ---------------------------------------------------------------------
+		 */
+		k=grid_points[2]-2;
+		k1=grid_points[2]-1;
+		for(i=1; i<=nx2; i++){
+			fac1=1.0/lhs[k][i][2];
+			lhs[k][i][3]=fac1*lhs[k][i][3];
+			lhs[k][i][4]=fac1*lhs[k][i][4];
+			for(m=0; m<3; m++){
+				rhs[k][j][i][m]=fac1*rhs[k][j][i][m];
+			}
+			lhs[k1][i][2]=lhs[k1][i][2]-lhs[k1][i][1]*lhs[k][i][3];
+			lhs[k1][i][3]=lhs[k1][i][3]-lhs[k1][i][1]*lhs[k][i][4];
+			for(m=0; m<3; m++){
+				rhs[k1][j][i][m]=rhs[k1][j][i][m]-lhs[k1][i][1]*rhs[k][j][i][m];
 			}
 			/*
 			 * ---------------------------------------------------------------------
-			 * do the u+c and the u-c factors               
+			 * scale the last row immediately
 			 * ---------------------------------------------------------------------
 			 */
-			for(k=0; k<=grid_points[2]-3; k++){
-				k1=k+1;
-				k2=k+2;
-				for(i=1; i<=nx2; i++){
-					m=3;
-					fac1=1.0/lhsp[k][i][2];
-					lhsp[k][i][3]=fac1*lhsp[k][i][3];
-					lhsp[k][i][4]=fac1*lhsp[k][i][4];
-					rhs[k][j][i][m]=fac1*rhs[k][j][i][m];
-					lhsp[k1][i][2]=lhsp[k1][i][2]-lhsp[k1][i][1]*lhsp[k][i][3];
-					lhsp[k1][i][3]=lhsp[k1][i][3]-lhsp[k1][i][1]*lhsp[k][i][4];
-					rhs[k1][j][i][m]=rhs[k1][j][i][m]-lhsp[k1][i][1]*rhs[k][j][i][m];
-					lhsp[k2][i][1]=lhsp[k2][i][1]-lhsp[k2][i][0]*lhsp[k][i][3];
-					lhsp[k2][i][2]=lhsp[k2][i][2]-lhsp[k2][i][0]*lhsp[k][i][4];
-					rhs[k2][j][i][m]=rhs[k2][j][i][m]-lhsp[k2][i][0]*rhs[k][j][i][m];
-					m=4;
-					fac1=1.0/lhsm[k][i][2];
-					lhsm[k][i][3]=fac1*lhsm[k][i][3];
-					lhsm[k][i][4]=fac1*lhsm[k][i][4];
-					rhs[k][j][i][m]=fac1*rhs[k][j][i][m];
-					lhsm[k1][i][2]=lhsm[k1][i][2]-lhsm[k1][i][1]*lhsm[k][i][3];
-					lhsm[k1][i][3]=lhsm[k1][i][3]-lhsm[k1][i][1]*lhsm[k][i][4];
-					rhs[k1][j][i][m]=rhs[k1][j][i][m]-lhsm[k1][i][1]*rhs[k][j][i][m];
-					lhsm[k2][i][1]=lhsm[k2][i][1]-lhsm[k2][i][0]*lhsm[k][i][3];
-					lhsm[k2][i][2]=lhsm[k2][i][2]-lhsm[k2][i][0]*lhsm[k][i][4];
-					rhs[k2][j][i][m]=rhs[k2][j][i][m]-lhsm[k2][i][0]*rhs[k][j][i][m];
-				}
+			fac2=1.0/lhs[k1][i][2];
+			for(m=0; m<3; m++){
+				rhs[k1][j][i][m]=fac2*rhs[k1][j][i][m];
 			}
-			/*
-			 * ---------------------------------------------------------------------
-			 * and again the last two rows separately
-			 * ---------------------------------------------------------------------
-			 */
-			k=grid_points[2]-2;
-			k1=grid_points[2]-1;
+		}
+		/*
+		 * ---------------------------------------------------------------------
+		 * do the u+c and the u-c factors               
+		 * ---------------------------------------------------------------------
+		 */
+		for(k=0; k<=grid_points[2]-3; k++){
+			k1=k+1;
+			k2=k+2;
 			for(i=1; i<=nx2; i++){
 				m=3;
 				fac1=1.0/lhsp[k][i][2];
@@ -2776,6 +2689,9 @@ void z_solve(){
 				lhsp[k1][i][2]=lhsp[k1][i][2]-lhsp[k1][i][1]*lhsp[k][i][3];
 				lhsp[k1][i][3]=lhsp[k1][i][3]-lhsp[k1][i][1]*lhsp[k][i][4];
 				rhs[k1][j][i][m]=rhs[k1][j][i][m]-lhsp[k1][i][1]*rhs[k][j][i][m];
+				lhsp[k2][i][1]=lhsp[k2][i][1]-lhsp[k2][i][0]*lhsp[k][i][3];
+				lhsp[k2][i][2]=lhsp[k2][i][2]-lhsp[k2][i][0]*lhsp[k][i][4];
+				rhs[k2][j][i][m]=rhs[k2][j][i][m]-lhsp[k2][i][0]*rhs[k][j][i][m];
 				m=4;
 				fac1=1.0/lhsm[k][i][2];
 				lhsm[k][i][3]=fac1*lhsm[k][i][3];
@@ -2784,58 +2700,86 @@ void z_solve(){
 				lhsm[k1][i][2]=lhsm[k1][i][2]-lhsm[k1][i][1]*lhsm[k][i][3];
 				lhsm[k1][i][3]=lhsm[k1][i][3]-lhsm[k1][i][1]*lhsm[k][i][4];
 				rhs[k1][j][i][m]=rhs[k1][j][i][m]-lhsm[k1][i][1]*rhs[k][j][i][m];
+				lhsm[k2][i][1]=lhsm[k2][i][1]-lhsm[k2][i][0]*lhsm[k][i][3];
+				lhsm[k2][i][2]=lhsm[k2][i][2]-lhsm[k2][i][0]*lhsm[k][i][4];
+				rhs[k2][j][i][m]=rhs[k2][j][i][m]-lhsm[k2][i][0]*rhs[k][j][i][m];
+			}
+		}
+		/*
+		 * ---------------------------------------------------------------------
+		 * and again the last two rows separately
+		 * ---------------------------------------------------------------------
+		 */
+		k=grid_points[2]-2;
+		k1=grid_points[2]-1;
+		for(i=1; i<=nx2; i++){
+			m=3;
+			fac1=1.0/lhsp[k][i][2];
+			lhsp[k][i][3]=fac1*lhsp[k][i][3];
+			lhsp[k][i][4]=fac1*lhsp[k][i][4];
+			rhs[k][j][i][m]=fac1*rhs[k][j][i][m];
+			lhsp[k1][i][2]=lhsp[k1][i][2]-lhsp[k1][i][1]*lhsp[k][i][3];
+			lhsp[k1][i][3]=lhsp[k1][i][3]-lhsp[k1][i][1]*lhsp[k][i][4];
+			rhs[k1][j][i][m]=rhs[k1][j][i][m]-lhsp[k1][i][1]*rhs[k][j][i][m];
+			m=4;
+			fac1=1.0/lhsm[k][i][2];
+			lhsm[k][i][3]=fac1*lhsm[k][i][3];
+			lhsm[k][i][4]=fac1*lhsm[k][i][4];
+			rhs[k][j][i][m]=fac1*rhs[k][j][i][m];
+			lhsm[k1][i][2]=lhsm[k1][i][2]-lhsm[k1][i][1]*lhsm[k][i][3];
+			lhsm[k1][i][3]=lhsm[k1][i][3]-lhsm[k1][i][1]*lhsm[k][i][4];
+			rhs[k1][j][i][m]=rhs[k1][j][i][m]-lhsm[k1][i][1]*rhs[k][j][i][m];
+			/*
+			 * ---------------------------------------------------------------------
+			 * scale the last row immediately (some of this is overkill
+			 * if this is the last cell)
+			 * ---------------------------------------------------------------------
+			 */
+			rhs[k1][j][i][3]=rhs[k1][j][i][3]/lhsp[k1][i][2];
+			rhs[k1][j][i][4]=rhs[k1][j][i][4]/lhsm[k1][i][2];
+		}
+		/*
+		 * ---------------------------------------------------------------------
+		 * BACKSUBSTITUTION 
+		 * ---------------------------------------------------------------------
+		 */
+		k=grid_points[2]-2;
+		k1=grid_points[2]-1;
+		for(i=1; i<=nx2; i++){
+			for(m=0; m<3; m++){
+				rhs[k][j][i][m]=rhs[k][j][i][m]-lhs[k][i][3]*rhs[k1][j][i][m];
+			}
+			rhs[k][j][i][3]=rhs[k][j][i][3]-lhsp[k][i][3]*rhs[k1][j][i][3];
+			rhs[k][j][i][4]=rhs[k][j][i][4]-lhsm[k][i][3]*rhs[k1][j][i][4];
+		}
+		/*
+		 * ---------------------------------------------------------------------
+		 * whether or not this is the last processor, we always have
+		 * to complete the back-substitution 
+		 * ---------------------------------------------------------------------
+		 * the first three factors
+		 * ---------------------------------------------------------------------
+		 */
+		for(k=grid_points[2]-3; k>=0; k--){
+			k1=k+1;
+			k2=k+2;
+			for(i=1; i<=nx2; i++){
+				for (m = 0; m < 3; m++) {
+					rhs[k][j][i][m]=rhs[k][j][i][m]- 
+						lhs[k][i][3]*rhs[k1][j][i][m]-
+						lhs[k][i][4]*rhs[k2][j][i][m];
+				}
 				/*
 				 * ---------------------------------------------------------------------
-				 * scale the last row immediately (some of this is overkill
-				 * if this is the last cell)
+				 * and the remaining two
 				 * ---------------------------------------------------------------------
 				 */
-				rhs[k1][j][i][3]=rhs[k1][j][i][3]/lhsp[k1][i][2];
-				rhs[k1][j][i][4]=rhs[k1][j][i][4]/lhsm[k1][i][2];
-			}
-			/*
-			 * ---------------------------------------------------------------------
-			 * BACKSUBSTITUTION 
-			 * ---------------------------------------------------------------------
-			 */
-			k=grid_points[2]-2;
-			k1=grid_points[2]-1;
-			for(i=1; i<=nx2; i++){
-				for(m=0; m<3; m++){
-					rhs[k][j][i][m]=rhs[k][j][i][m]-lhs[k][i][3]*rhs[k1][j][i][m];
-				}
-				rhs[k][j][i][3]=rhs[k][j][i][3]-lhsp[k][i][3]*rhs[k1][j][i][3];
-				rhs[k][j][i][4]=rhs[k][j][i][4]-lhsm[k][i][3]*rhs[k1][j][i][4];
-			}
-			/*
-			 * ---------------------------------------------------------------------
-			 * whether or not this is the last processor, we always have
-			 * to complete the back-substitution 
-			 * ---------------------------------------------------------------------
-			 * the first three factors
-			 * ---------------------------------------------------------------------
-			 */
-			for(k=grid_points[2]-3; k>=0; k--){
-				k1=k+1;
-				k2=k+2;
-				for(i=1; i<=nx2; i++){
-					for (m = 0; m < 3; m++) {
-						rhs[k][j][i][m]=rhs[k][j][i][m]- 
-							lhs[k][i][3]*rhs[k1][j][i][m]-
-							lhs[k][i][4]*rhs[k2][j][i][m];
-					}
-					/*
-					 * ---------------------------------------------------------------------
-					 * and the remaining two
-					 * ---------------------------------------------------------------------
-					 */
-					rhs[k][j][i][3]=rhs[k][j][i][3]- 
-						lhsp[k][i][3]*rhs[k1][j][i][3]-
-						lhsp[k][i][4]*rhs[k2][j][i][3];
-					rhs[k][j][i][4]=rhs[k][j][i][4]- 
-						lhsm[k][i][3]*rhs[k1][j][i][4]-
-						lhsm[k][i][4]*rhs[k2][j][i][4];
-				}
+				rhs[k][j][i][3]=rhs[k][j][i][3]- 
+					lhsp[k][i][3]*rhs[k1][j][i][3]-
+					lhsp[k][i][4]*rhs[k2][j][i][3];
+				rhs[k][j][i][4]=rhs[k][j][i][4]- 
+					lhsm[k][i][3]*rhs[k1][j][i][4]-
+					lhsm[k][i][4]*rhs[k2][j][i][4];
 			}
 		}
 	}

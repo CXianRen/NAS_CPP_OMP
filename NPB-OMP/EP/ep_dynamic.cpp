@@ -93,7 +93,7 @@ static double (*q)=(double*)malloc(sizeof(double)*(NQ));
 
 /* ep */
 int main(int argc, char **argv){
-printf("USING TASKLOOP SCHEDULER\n");
+printf("USING DYNAMIC SCHEDULER\n");
 #if defined(DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION)
 	printf(" DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION mode on\n");
 #endif
@@ -194,49 +194,51 @@ printf("USING TASKLOOP SCHEDULER\n");
 
         for (i = 0; i < NQ; i++) qq[i] = 0.0;
 
-       	#pragma omp single
-       	{
-       		#pragma omp taskloop private(l, x1, t2, i, t1, t4, t3, ik, kk, x2) reduction(+:sx,sy)
-       		for (k=1; k<=np; k++) {
-				kk = k_offset + k;
-				t1 = S;
-				t2 = an;
-				int thread_id = omp_get_thread_num();
-				/* find starting seed t1 for this kk */
-				for(i=1; i<=100; i++){
-					ik = kk / 2;
-					if((2*ik)!=kk){t3=randlc(&t1,t2);}
-					if(ik==0){break;}
-					t3=randlc(&t2,t2);
-					kk=ik;
+       	#pragma omp for schedule(nonmonotonic:dynamic) reduction(+:sx,sy)
+		for(k=1; k<=np; k++){
+			kk = k_offset + k;
+			t1 = S;
+			t2 = an;
+			int thread_id = omp_get_thread_num();
+
+			/* find starting seed t1 for this kk */
+			for(i=1; i<=100; i++){
+				ik = kk / 2;
+				if((2*ik)!=kk){t3=randlc(&t1,t2);}
+				if(ik==0){break;}
+				t3=randlc(&t2,t2);
+				kk=ik;
+			}
+
+			/* compute uniform pseudorandom numbers */
+
+			if(timers_enabled && thread_id==0){timer_start(2);}
+			vranlc(2*NK, &t1, A, x);
+			if(timers_enabled && thread_id==0){timer_stop(2);}
+			
+
+			/*
+			 * compute gaussian deviates by acceptance-rejection method and
+			 * tally counts in concentric square annuli. this loop is not
+			 * vectorizable.
+			 */
+			if(timers_enabled && thread_id==0){timer_start(1);}
+			for(i=0; i<NK; i++){
+				x1 = 2.0 * x[2*i] - 1.0;
+				x2 = 2.0 * x[2*i+1] - 1.0;
+				t1 = pow2(x1) + pow2(x2);
+				if(t1 <= 1.0){
+					t2 = sqrt(-2.0 * log(t1) / t1);
+					t3 = (x1 * t2);
+					t4 = (x2 * t2);
+					l = max(fabs(t3), fabs(t4));
+					qq[l] += 1.0;
+					sx = sx + t3;
+					sy = sy + t4;
 				}
-				/* compute uniform pseudorandom numbers */
-				if(timers_enabled && thread_id==0){timer_start(2);}
-				vranlc(2*NK, &t1, A, x);
-				if(timers_enabled && thread_id==0){timer_stop(2);}
-				/*
-				 * compute gaussian deviates by acceptance-rejection method and
-				 * tally counts in concentric square annuli. this loop is not
-				 * vectorizable.
-				 */
-				if(timers_enabled && thread_id==0){timer_start(1);}
-				for(i=0; i<NK; i++){
-					x1 = 2.0 * x[2*i] - 1.0;
-					x2 = 2.0 * x[2*i+1] - 1.0;
-					t1 = pow2(x1) + pow2(x2);
-					if(t1 <= 1.0){
-						t2 = sqrt(-2.0 * log(t1) / t1);
-						t3 = (x1 * t2);
-						t4 = (x2 * t2);
-						l = max(fabs(t3), fabs(t4));
-						qq[l] += 1.0;
-						sx = sx + t3;
-						sy = sy + t4;
-					}
-				}
-				if(timers_enabled && thread_id==0){timer_stop(1);}
-       		}
-       	}
+			}
+			if(timers_enabled && thread_id==0){timer_stop(1);}
+		}
 
 		#pragma omp critical
         {

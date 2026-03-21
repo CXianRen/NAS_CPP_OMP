@@ -174,6 +174,7 @@ static void vecset(int n,
 
 /* cg */
 int main(int argc, char **argv){
+printf("USING TASKLOOP SCHEDULER\n");
 #if defined(DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION)
 	printf(" DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION mode on\n");
 #endif

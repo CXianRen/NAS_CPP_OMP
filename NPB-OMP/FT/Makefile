@@ -4,7 +4,7 @@ BENCHMARKU=FT
 
 include ../config/make.def
 
-OBJS = ft.o ${COMMON}/c_${RAND}.o ${COMMON}/c_print_results.o \
+OBJS = ${BENCHMARK}${VERSION_TAIL}.o ${COMMON}/c_${RAND}.o ${COMMON}/c_print_results.o \
        ${COMMON}/c_timers.o ${COMMON}/c_wtime.o #../omp-prof.o
 
 include ../sys/make.common
@@ -12,8 +12,8 @@ include ../sys/make.common
 ${PROGRAM}: config ${OBJS}
 	${CLINK} ${CLINKFLAGS} -o ${PROGRAM} ${OBJS} ${C_LIB}
 
-ft.o:             ft${VERSION_TAIL}.cpp npbparams.hpp
-	${CCOMPILE} ft${VERSION_TAIL}.cpp -o ft.o
+${BENCHMARK}${VERSION_TAIL}.o:             ${BENCHMARK}${VERSION_TAIL}.cpp npbparams.hpp
+	${CCOMPILE} ${BENCHMARK}${VERSION_TAIL}.cpp -o ${BENCHMARK}${VERSION_TAIL}.o
 
 clean:
 	- rm -f *.o *~ mputil*

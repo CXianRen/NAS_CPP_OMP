@@ -128,7 +128,7 @@ static void zran3(void* pointer_z, int n1, int n2, int n3, int nx, int ny, int k
 
 /* mg */
 int main(int argc, char *argv[]){
-printf("USING TASKLOOP SCHEDULER\n");
+printf("USING DYNAMIC SCHEDULER\n");
 #if defined(DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION)
 	printf(" DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION mode on\n");
 #endif
@@ -540,31 +540,25 @@ static void comm3(void* pointer_u, int n1, int n2, int n3, int kk){
 		#pragma omp master
 			timer_start(T_COMM3);
 	}
-	#pragma omp single
-	{
-		#pragma omp taskloop private(i2, i1)
-		for (i3 = 1; i3 < n3-1; i3++) {
-			/* axis = 1 */
-			for(i2 = 1; i2 < n2-1; i2++){
-				u[i3][i2][0] = u[i3][i2][n1-2];
-				u[i3][i2][n1-1] = u[i3][i2][1];			
-			}
-			/* axis = 2 */
-			for(i1 = 0; i1 < n1; i1++){
-				u[i3][0][i1] = u[i3][n2-2][i1];
-				u[i3][n2-1][i1] = u[i3][1][i1];			
-			}
+	#pragma omp for schedule(nonmonotonic:dynamic)
+	for(i3 = 1; i3 < n3-1; i3++){
+		/* axis = 1 */
+		for(i2 = 1; i2 < n2-1; i2++){
+			u[i3][i2][0] = u[i3][i2][n1-2];
+			u[i3][i2][n1-1] = u[i3][i2][1];			
+		}
+		/* axis = 2 */
+		for(i1 = 0; i1 < n1; i1++){
+			u[i3][0][i1] = u[i3][n2-2][i1];
+			u[i3][n2-1][i1] = u[i3][1][i1];			
 		}
 	}
 	/* axis = 3 */
-	#pragma omp single
-	{
-		#pragma omp taskloop private(i1)
-		for (i2 = 0; i2 < n2; i2++) {
-			for(i1 = 0; i1 < n1; i1++){
-				u[0][i2][i1] = u[n3-2][i2][i1];
-				u[n3-1][i2][i1] = u[1][i2][i1];			
-			}
+	#pragma omp for schedule(nonmonotonic:dynamic)
+	for(i2 = 0; i2 < n2; i2++){
+		for(i1 = 0; i1 < n1; i1++){
+			u[0][i2][i1] = u[n3-2][i2][i1];
+			u[n3-1][i2][i1] = u[1][i2][i1];			
 		}
 	}
 
@@ -615,40 +609,37 @@ static void interp(void* pointer_z, int mm1, int mm2, int mm3, void* pointer_u, 
 	}
 
 	if(n1 != 3 && n2 != 3 && n3 != 3){
-		#pragma omp single
-		{
-			#pragma omp taskloop private(i1, z3, i2, z1, z2)
-			for (i3 = 0; i3 < mm3-1; i3++) {
-				for(i2 = 0; i2 < mm2-1; i2++){
-					for(i1 = 0; i1 < mm1; i1++){
-						z1[i1] = z[i3][i2+1][i1] + z[i3][i2][i1];
-						z2[i1] = z[i3+1][i2][i1] + z[i3][i2][i1];
-						z3[i1] = z[i3+1][i2+1][i1] + z[i3+1][i2][i1] + z1[i1];
-					}
-					for(i1 = 0; i1 < mm1-1; i1++){
-						u[2*i3][2*i2][2*i1] = u[2*i3][2*i2][2*i1]
-							+z[i3][i2][i1];
-						u[2*i3][2*i2][2*i1+1] = u[2*i3][2*i2][2*i1+1]
-							+0.5*(z[i3][i2][i1+1]+z[i3][i2][i1]);
-					}
-					for(i1 = 0; i1 < mm1-1; i1++){
-						u[2*i3][2*i2+1][2*i1] = u[2*i3][2*i2+1][2*i1]
-							+0.5 * z1[i1];
-						u[2*i3][2*i2+1][2*i1+1] = u[2*i3][2*i2+1][2*i1+1]
-							+0.25*( z1[i1] + z1[i1+1] );
-					}
-					for(i1 = 0; i1 < mm1-1; i1++){
-						u[2*i3+1][2*i2][2*i1] = u[2*i3+1][2*i2][2*i1]
-							+0.5 * z2[i1];
-						u[2*i3+1][2*i2][2*i1+1] = u[2*i3+1][2*i2][2*i1+1]
-							+0.25*( z2[i1] + z2[i1+1] );
-					}
-					for(i1 = 0; i1 < mm1-1; i1++){
-						u[2*i3+1][2*i2+1][2*i1] = u[2*i3+1][2*i2+1][2*i1]
-							+0.25* z3[i1];
-						u[2*i3+1][2*i2+1][2*i1+1] = u[2*i3+1][2*i2+1][2*i1+1]
-							+0.125*( z3[i1] + z3[i1+1] );
-					}
+		#pragma omp for schedule(nonmonotonic:dynamic)
+		for(i3 = 0; i3 < mm3-1; i3++){
+			for(i2 = 0; i2 < mm2-1; i2++){
+				for(i1 = 0; i1 < mm1; i1++){
+					z1[i1] = z[i3][i2+1][i1] + z[i3][i2][i1];
+					z2[i1] = z[i3+1][i2][i1] + z[i3][i2][i1];
+					z3[i1] = z[i3+1][i2+1][i1] + z[i3+1][i2][i1] + z1[i1];
+				}
+				for(i1 = 0; i1 < mm1-1; i1++){
+					u[2*i3][2*i2][2*i1] = u[2*i3][2*i2][2*i1]
+						+z[i3][i2][i1];
+					u[2*i3][2*i2][2*i1+1] = u[2*i3][2*i2][2*i1+1]
+						+0.5*(z[i3][i2][i1+1]+z[i3][i2][i1]);
+				}
+				for(i1 = 0; i1 < mm1-1; i1++){
+					u[2*i3][2*i2+1][2*i1] = u[2*i3][2*i2+1][2*i1]
+						+0.5 * z1[i1];
+					u[2*i3][2*i2+1][2*i1+1] = u[2*i3][2*i2+1][2*i1+1]
+						+0.25*( z1[i1] + z1[i1+1] );
+				}
+				for(i1 = 0; i1 < mm1-1; i1++){
+					u[2*i3+1][2*i2][2*i1] = u[2*i3+1][2*i2][2*i1]
+						+0.5 * z2[i1];
+					u[2*i3+1][2*i2][2*i1+1] = u[2*i3+1][2*i2][2*i1+1]
+						+0.25*( z2[i1] + z2[i1+1] );
+				}
+				for(i1 = 0; i1 < mm1-1; i1++){
+					u[2*i3+1][2*i2+1][2*i1] = u[2*i3+1][2*i2+1][2*i1]
+						+0.25* z3[i1];
+					u[2*i3+1][2*i2+1][2*i1+1] = u[2*i3+1][2*i2+1][2*i1+1]
+						+0.125*( z3[i1] + z3[i1+1] );
 				}
 			}
 		}
@@ -674,69 +665,63 @@ static void interp(void* pointer_z, int mm1, int mm2, int mm3, void* pointer_u, 
 			d3 = 1;
 			t3 = 0;
 		}
-		#pragma omp single
-		{
-			#pragma omp taskloop private(i2, i1)
-			for (i3 = d3; i3 <= mm3-1; i3++) {
-				for(i2 = d2; i2 <= mm2-1; i2++){
-					for(i1 = d1; i1 <= mm1-1; i1++){
-						u[2*i3-d3-1][2*i2-d2-1][2*i1-d1-1] =
-							u[2*i3-d3-1][2*i2-d2-1][2*i1-d1-1]
-							+z[i3-1][i2-1][i1-1];
-					}
-					for(i1 = 1; i1 <= mm1-1; i1++){
-						u[2*i3-d3-1][2*i2-d2-1][2*i1-t1-1] =
-							u[2*i3-d3-1][2*i2-d2-1][2*i1-t1-1]
-							+0.5*(z[i3-1][i2-1][i1]+z[i3-1][i2-1][i1-1]);
-					}
+		#pragma omp for schedule(nonmonotonic:dynamic)
+		for(i3 = d3; i3 <= mm3-1; i3++){
+			for(i2 = d2; i2 <= mm2-1; i2++){
+				for(i1 = d1; i1 <= mm1-1; i1++){
+					u[2*i3-d3-1][2*i2-d2-1][2*i1-d1-1] =
+						u[2*i3-d3-1][2*i2-d2-1][2*i1-d1-1]
+						+z[i3-1][i2-1][i1-1];
 				}
-				for(i2 = 1; i2 <= mm2-1; i2++){
-					for ( i1 = d1; i1 <= mm1-1; i1++) {
-						u[2*i3-d3-1][2*i2-t2-1][2*i1-d1-1] =
-							u[2*i3-d3-1][2*i2-t2-1][2*i1-d1-1]
-							+0.5*(z[i3-1][i2][i1-1]+z[i3-1][i2-1][i1-1]);
-					}
-					for(i1 = 1; i1 <= mm1-1; i1++){
-						u[2*i3-d3-1][2*i2-t2-1][2*i1-t1-1] =
-							u[2*i3-d3-1][2*i2-t2-1][2*i1-t1-1]
-							+0.25*(z[i3-1][i2][i1]+z[i3-1][i2-1][i1]
-									+z[i3-1][i2][i1-1]+z[i3-1][i2-1][i1-1]);
-					}
+				for(i1 = 1; i1 <= mm1-1; i1++){
+					u[2*i3-d3-1][2*i2-d2-1][2*i1-t1-1] =
+						u[2*i3-d3-1][2*i2-d2-1][2*i1-t1-1]
+						+0.5*(z[i3-1][i2-1][i1]+z[i3-1][i2-1][i1-1]);
+				}
+			}
+			for(i2 = 1; i2 <= mm2-1; i2++){
+				for ( i1 = d1; i1 <= mm1-1; i1++) {
+					u[2*i3-d3-1][2*i2-t2-1][2*i1-d1-1] =
+						u[2*i3-d3-1][2*i2-t2-1][2*i1-d1-1]
+						+0.5*(z[i3-1][i2][i1-1]+z[i3-1][i2-1][i1-1]);
+				}
+				for(i1 = 1; i1 <= mm1-1; i1++){
+					u[2*i3-d3-1][2*i2-t2-1][2*i1-t1-1] =
+						u[2*i3-d3-1][2*i2-t2-1][2*i1-t1-1]
+						+0.25*(z[i3-1][i2][i1]+z[i3-1][i2-1][i1]
+								+z[i3-1][i2][i1-1]+z[i3-1][i2-1][i1-1]);
 				}
 			}
 		}
-		#pragma omp single
-		{
-			#pragma omp taskloop private(i2, i1)
-			for (i3 = 1; i3 <= mm3-1; i3++) {
-				for(i2 = d2; i2 <= mm2-1; i2++){
-					for(i1 = d1; i1 <= mm1-1; i1++){
-						u[2*i3-t3-1][2*i2-d2-1][2*i1-d1-1] =
-							u[2*i3-t3-1][2*i2-d2-1][2*i1-d1-1]
-							+0.5*(z[i3][i2-1][i1-1]+z[i3-1][i2-1][i1-1]);
-					}
-					for(i1 = 1; i1 <= mm1-1; i1++){
-						u[2*i3-t3-1][2*i2-d2-1][2*i1-t1-1] =
-							u[2*i3-t3-1][2*i2-d2-1][2*i1-t1-1]
-							+0.25*(z[i3][i2-1][i1]+z[i3][i2-1][i1-1]
-									+z[i3-1][i2-1][i1]+z[i3-1][i2-1][i1-1]);
-					}
+		#pragma omp for schedule(nonmonotonic:dynamic)
+		for(i3 = 1; i3 <= mm3-1; i3++){
+			for(i2 = d2; i2 <= mm2-1; i2++){
+				for(i1 = d1; i1 <= mm1-1; i1++){
+					u[2*i3-t3-1][2*i2-d2-1][2*i1-d1-1] =
+						u[2*i3-t3-1][2*i2-d2-1][2*i1-d1-1]
+						+0.5*(z[i3][i2-1][i1-1]+z[i3-1][i2-1][i1-1]);
 				}
-				for(i2 = 1; i2 <= mm2-1; i2++){
-					for (i1 = d1; i1 <= mm1-1; i1++){
-						u[2*i3-t3-1][2*i2-t2-1][2*i1-d1-1] =
-							u[2*i3-t3-1][2*i2-t2-1][2*i1-d1-1]
-							+0.25*(z[i3][i2][i1-1]+z[i3][i2-1][i1-1]
-									+z[i3-1][i2][i1-1]+z[i3-1][i2-1][i1-1]);
-					}
-					for(i1 = 1; i1 <= mm1-1; i1++){
-						u[2*i3-t3-1][2*i2-t2-1][2*i1-t1-1] =
-							u[2*i3-t3-1][2*i2-t2-1][2*i1-t1-1]
-							+0.125*(z[i3][i2][i1]+z[i3][i2-1][i1]
-									+z[i3][i2][i1-1]+z[i3][i2-1][i1-1]
-									+z[i3-1][i2][i1]+z[i3-1][i2-1][i1]
-									+z[i3-1][i2][i1-1]+z[i3-1][i2-1][i1-1]);
-					}
+				for(i1 = 1; i1 <= mm1-1; i1++){
+					u[2*i3-t3-1][2*i2-d2-1][2*i1-t1-1] =
+						u[2*i3-t3-1][2*i2-d2-1][2*i1-t1-1]
+						+0.25*(z[i3][i2-1][i1]+z[i3][i2-1][i1-1]
+								+z[i3-1][i2-1][i1]+z[i3-1][i2-1][i1-1]);
+				}
+			}
+			for(i2 = 1; i2 <= mm2-1; i2++){
+				for (i1 = d1; i1 <= mm1-1; i1++){
+					u[2*i3-t3-1][2*i2-t2-1][2*i1-d1-1] =
+						u[2*i3-t3-1][2*i2-t2-1][2*i1-d1-1]
+						+0.25*(z[i3][i2][i1-1]+z[i3][i2-1][i1-1]
+								+z[i3-1][i2][i1-1]+z[i3-1][i2-1][i1-1]);
+				}
+				for(i1 = 1; i1 <= mm1-1; i1++){
+					u[2*i3-t3-1][2*i2-t2-1][2*i1-t1-1] =
+						u[2*i3-t3-1][2*i2-t2-1][2*i1-t1-1]
+						+0.125*(z[i3][i2][i1]+z[i3][i2-1][i1]
+								+z[i3][i2][i1-1]+z[i3][i2-1][i1-1]
+								+z[i3-1][i2][i1]+z[i3-1][i2-1][i1]
+								+z[i3-1][i2][i1-1]+z[i3-1][i2-1][i1-1]);
 				}
 			}
 		}
@@ -851,16 +836,13 @@ static void norm2u3(void* pointer_r, int n1, int n2, int n3, double* rnm2, doubl
 		rnmu_local = 0.0;
 	}
 
-	#pragma omp single
-	{
-		#pragma omp taskloop private(i1, i2, a) reduction(+:s,rnmu_local)
-		for (i3 = 1; i3 < n3-1; i3++) {
-			for(i2 = 1; i2 < n2-1; i2++){
-				for(i1 = 1; i1 < n1-1; i1++){
-					s = s + r[i3][i2][i1] * r[i3][i2][i1];
-					a = fabs(r[i3][i2][i1]);
-					if(a > rnmu_local){rnmu_local = a;}
-				}
+	#pragma omp for schedule(nonmonotonic:dynamic) reduction(+:s,rnmu_local) 
+	for(i3 = 1; i3 < n3-1; i3++){
+		for(i2 = 1; i2 < n2-1; i2++){
+			for(i1 = 1; i1 < n1-1; i1++){
+				s = s + r[i3][i2][i1] * r[i3][i2][i1];
+				a = fabs(r[i3][i2][i1]);
+				if(a > rnmu_local){rnmu_local = a;}
 			}
 		}
 	}
@@ -930,31 +912,28 @@ static void psinv(void* pointer_r, void* pointer_u, int n1, int n2, int n3, doub
 			timer_start(T_PSINV);
 	}
 	
-	#pragma omp single
-	{
-		#pragma omp taskloop private(r2, i1, i2, r1)
-		for (i3 = 1; i3 < n3-1; i3++) {
-			for(i2 = 1; i2 < n2-1; i2++){
-				for(i1 = 0; i1 < n1; i1++){
-					r1[i1] = r[i3][i2-1][i1] + r[i3][i2+1][i1]
-						+ r[i3-1][i2][i1] + r[i3+1][i2][i1];
-					r2[i1] = r[i3-1][i2-1][i1] + r[i3-1][i2+1][i1]
-						+ r[i3+1][i2-1][i1] + r[i3+1][i2+1][i1];
-				}
-				for(i1 = 1; i1 < n1-1; i1++){
-					u[i3][i2][i1] = u[i3][i2][i1]
-						+ c[0] * r[i3][i2][i1]
-						+ c[1] * ( r[i3][i2][i1-1] + r[i3][i2][i1+1]
-								+ r1[i1] )
-						+ c[2] * ( r2[i1] + r1[i1-1] + r1[i1+1] );
-					/*
-					 * --------------------------------------------------------------------
-					 * assume c(3) = 0    (enable line below if c(3) not= 0)
-					 * --------------------------------------------------------------------
-					 * > + c(3) * ( r2(i1-1) + r2(i1+1) )
-					 * --------------------------------------------------------------------
-					 */
-				}
+	#pragma omp for schedule(nonmonotonic:dynamic)
+	for(i3 = 1; i3 < n3-1; i3++){
+		for(i2 = 1; i2 < n2-1; i2++){
+			for(i1 = 0; i1 < n1; i1++){
+				r1[i1] = r[i3][i2-1][i1] + r[i3][i2+1][i1]
+					+ r[i3-1][i2][i1] + r[i3+1][i2][i1];
+				r2[i1] = r[i3-1][i2-1][i1] + r[i3-1][i2+1][i1]
+					+ r[i3+1][i2-1][i1] + r[i3+1][i2+1][i1];
+			}
+			for(i1 = 1; i1 < n1-1; i1++){
+				u[i3][i2][i1] = u[i3][i2][i1]
+					+ c[0] * r[i3][i2][i1]
+					+ c[1] * ( r[i3][i2][i1-1] + r[i3][i2][i1+1]
+							+ r1[i1] )
+					+ c[2] * ( r2[i1] + r1[i1-1] + r1[i1+1] );
+				/*
+				 * --------------------------------------------------------------------
+				 * assume c(3) = 0    (enable line below if c(3) not= 0)
+				 * --------------------------------------------------------------------
+				 * > + c(3) * ( r2(i1-1) + r2(i1+1) )
+				 * --------------------------------------------------------------------
+				 */
 			}
 		}
 	}
@@ -1028,31 +1007,28 @@ static void resid(void* pointer_u, void* pointer_v, void* pointer_r, int n1, int
 		#pragma omp master
 			timer_start(T_RESID);
 	}
-	#pragma omp single
-	{
-		#pragma omp taskloop private(i1, i2, u1, u2)
-		for (i3 = 1; i3 < n3-1; i3++) {
-			for(i2 = 1; i2 < n2-1; i2++){
-				for(i1 = 0; i1 < n1; i1++){
-					u1[i1] = u[i3][i2-1][i1] + u[i3][i2+1][i1]
-						+ u[i3-1][i2][i1] + u[i3+1][i2][i1];
-					u2[i1] = u[i3-1][i2-1][i1] + u[i3-1][i2+1][i1]
-						+ u[i3+1][i2-1][i1] + u[i3+1][i2+1][i1];
-				}
-				for(i1 = 1; i1 < n1-1; i1++){
-					r[i3][i2][i1] = v[i3][i2][i1]
-						- a[0] * u[i3][i2][i1]
-						/*
-						 * ---------------------------------------------------------------------
-						 * assume a(1) = 0 (enable 2 lines below if a(1) not= 0)
-						 * ---------------------------------------------------------------------
-						 * > - a(1) * ( u(i1-1,i2,i3) + u(i1+1,i2,i3)
-						 * > + u1(i1) )
-						 * ---------------------------------------------------------------------
-						 */
-						- a[2] * ( u2[i1] + u1[i1-1] + u1[i1+1] )
-						- a[3] * ( u2[i1-1] + u2[i1+1] );
-				}
+	#pragma omp for schedule(nonmonotonic:dynamic)
+	for(i3 = 1; i3 < n3-1; i3++){
+		for(i2 = 1; i2 < n2-1; i2++){
+			for(i1 = 0; i1 < n1; i1++){
+				u1[i1] = u[i3][i2-1][i1] + u[i3][i2+1][i1]
+					+ u[i3-1][i2][i1] + u[i3+1][i2][i1];
+				u2[i1] = u[i3-1][i2-1][i1] + u[i3-1][i2+1][i1]
+					+ u[i3+1][i2-1][i1] + u[i3+1][i2+1][i1];
+			}
+			for(i1 = 1; i1 < n1-1; i1++){
+				r[i3][i2][i1] = v[i3][i2][i1]
+					- a[0] * u[i3][i2][i1]
+					/*
+					 * ---------------------------------------------------------------------
+					 * assume a(1) = 0 (enable 2 lines below if a(1) not= 0)
+					 * ---------------------------------------------------------------------
+					 * > - a(1) * ( u(i1-1,i2,i3) + u(i1+1,i2,i3)
+					 * > + u1(i1) )
+					 * ---------------------------------------------------------------------
+					 */
+					- a[2] * ( u2[i1] + u1[i1-1] + u1[i1+1] )
+					- a[3] * ( u2[i1-1] + u2[i1+1] );
 			}
 		}
 	}
@@ -1125,32 +1101,29 @@ static void rprj3(void* pointer_r, int m1k, int m2k, int m3k, void* pointer_s, i
 		d3 = 1;
 	}
 
-	#pragma omp single
-	{
-		#pragma omp taskloop private(x2, i1, j2, i3, y1, i2, x1, j1, y2)
-		for (j3 = 1; j3 < m3j-1; j3++) {
-			i3 = 2*j3-d3;		
-			for(j2 = 1; j2 < m2j-1; j2++){
-				i2 = 2*j2-d2;
-				for(j1 = 1; j1 < m1j; j1++){
-					i1 = 2*j1-d1;				
-					x1[i1] = r[i3+1][i2][i1] + r[i3+1][i2+2][i1]
-						+ r[i3][i2+1][i1] + r[i3+2][i2+1][i1];
-					y1[i1] = r[i3][i2][i1] + r[i3+2][i2][i1]
-						+ r[i3][i2+2][i1] + r[i3+2][i2+2][i1];
-				}
-				for(j1 = 1; j1 < m1j-1; j1++){
-					i1 = 2*j1-d1;				
-					y2 = r[i3][i2][i1+1] + r[i3+2][i2][i1+1]
-						+ r[i3][i2+2][i1+1] + r[i3+2][i2+2][i1+1];
-					x2 = r[i3+1][i2][i1+1] + r[i3+1][i2+2][i1+1]
-						+ r[i3][i2+1][i1+1] + r[i3+2][i2+1][i1+1];
-					s[j3][j2][j1] =
-						0.5 * r[i3+1][i2+1][i1+1]
-						+ 0.25 * ( r[i3+1][i2+1][i1] + r[i3+1][i2+1][i1+2] + x2)
-						+ 0.125 * ( x1[i1] + x1[i1+2] + y2)
-						+ 0.0625 * ( y1[i1] + y1[i1+2] );
-				}
+	#pragma omp for schedule(nonmonotonic:dynamic)
+	for(j3 = 1; j3 < m3j-1; j3++){
+		i3 = 2*j3-d3;		
+		for(j2 = 1; j2 < m2j-1; j2++){
+			i2 = 2*j2-d2;
+			for(j1 = 1; j1 < m1j; j1++){
+				i1 = 2*j1-d1;				
+				x1[i1] = r[i3+1][i2][i1] + r[i3+1][i2+2][i1]
+					+ r[i3][i2+1][i1] + r[i3+2][i2+1][i1];
+				y1[i1] = r[i3][i2][i1] + r[i3+2][i2][i1]
+					+ r[i3][i2+2][i1] + r[i3+2][i2+2][i1];
+			}
+			for(j1 = 1; j1 < m1j-1; j1++){
+				i1 = 2*j1-d1;				
+				y2 = r[i3][i2][i1+1] + r[i3+2][i2][i1+1]
+					+ r[i3][i2+2][i1+1] + r[i3+2][i2+2][i1+1];
+				x2 = r[i3+1][i2][i1+1] + r[i3+1][i2+2][i1+1]
+					+ r[i3][i2+1][i1+1] + r[i3+2][i2+1][i1+1];
+				s[j3][j2][j1] =
+					0.5 * r[i3+1][i2+1][i1+1]
+					+ 0.25 * ( r[i3+1][i2+1][i1] + r[i3+1][i2+1][i1+2] + x2)
+					+ 0.125 * ( x1[i1] + x1[i1+2] + y2)
+					+ 0.0625 * ( y1[i1] + y1[i1+2] );
 			}
 		}
 	}
@@ -1265,17 +1238,14 @@ static void zero3(void* pointer_z, int n1, int n2, int n3){
 
 	int i1, i2, i3;
 
-    #pragma omp single
-    {
-    	#pragma omp taskloop private(i2, i1)
-    	for (i3 = 0;i3 < n3; i3++) {
-			for(i2 = 0; i2 < n2; i2++){
-				for(i1 = 0; i1 < n1; i1++){
-					z[i3][i2][i1] = 0.0;
-				}
+    #pragma omp for schedule(nonmonotonic:dynamic)  
+	for(i3 = 0;i3 < n3; i3++){
+		for(i2 = 0; i2 < n2; i2++){
+			for(i1 = 0; i1 < n1; i1++){
+				z[i3][i2][i1] = 0.0;
 			}
-    	}
-    }
+		}
+	}
 }
 
 /*

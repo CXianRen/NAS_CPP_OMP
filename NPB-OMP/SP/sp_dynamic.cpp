@@ -1,7 +1,3 @@
-
-#include "../common/hack.hpp"
-
-
 /*
 MIT License
 
@@ -173,6 +169,7 @@ void z_solve();
 
 /* sp */
 int main(int argc, char* argv[]){
+printf("USING DYNAMIC SCHEDULER\n");
 #if defined(DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION)
 	printf(" DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION mode on\n");
 #endif
@@ -340,9 +337,7 @@ void add(){
 	int thread_id = omp_get_thread_num();
 
 	if(timeron && thread_id==0){timer_start(T_ADD);}
-    // [HACK] Start Measurement 1
-    MONITOR_START(1);
-	#pragma omp for nowait
+	#pragma omp for schedule(nonmonotonic:dynamic)
 	for(k=1; k<=nz2; k++){
 		for(j=1; j<=ny2; j++){
 			for(i=1; i<=nx2; i++){
@@ -352,8 +347,6 @@ void add(){
 			}
 		}
 	}
-    MONITOR_STOP(1);
-    // [HACK] End Measurement 1
 	if(timeron && thread_id==0){timer_stop(T_ADD);}
 }
 
@@ -378,9 +371,7 @@ void compute_rhs(){
 	 * and the speed of sound. 
 	 * ---------------------------------------------------------------------
 	 */
-    // [HACK] Start Measurement 2
-    MONITOR_START(2);
-	#pragma omp for nowait
+	#pragma omp for schedule(nonmonotonic:dynamic)
 	for(k=0; k<=grid_points[2]-1; k++){
 		for(j=0; j<=grid_points[1]-1; j++){
 			for(i=0; i<=grid_points[0]-1; i++){
@@ -404,8 +395,6 @@ void compute_rhs(){
 			}
 		}
 	}
-    MONITOR_STOP(2);
-    // [HACK] End Measurement 2
 	/*
 	 * ---------------------------------------------------------------------
 	 * copy the exact forcing term to the right hand side;  because 
@@ -413,9 +402,7 @@ void compute_rhs(){
 	 * including the boundary                   
 	 * ---------------------------------------------------------------------
 	 */
-    // [HACK] Start Measurement 3
-    MONITOR_START(3);
-	#pragma omp for nowait
+	#pragma omp for schedule(nonmonotonic:dynamic)
 	for(k=0; k<=grid_points[2]-1; k++){
 		for(j=0; j<=grid_points[1]-1; j++){
 			for(i=0; i<=grid_points[0]-1; i++){
@@ -425,17 +412,13 @@ void compute_rhs(){
 			}
 		}
 	}
-    MONITOR_STOP(3);
-    // [HACK] End Measurement 3
 	/*
 	 * ---------------------------------------------------------------------
 	 * compute xi-direction fluxes 
 	 * ---------------------------------------------------------------------
 	 */
 	if(timeron && thread_id==0){timer_start(T_RHSX);}
-    // [HACK] Start Measurement 4
-    MONITOR_START(4);
-	#pragma omp for nowait
+	#pragma omp for schedule(nonmonotonic:dynamic)
 	for(k=1; k<=nz2; k++){
 		for(j=1; j<=ny2; j++){
 			for(i=1; i<=nx2; i++){
@@ -512,8 +495,6 @@ void compute_rhs(){
 			}
 		}
 	}
-    MONITOR_STOP(4);
-    // [HACK] End Measurement 4
 	if(timeron && thread_id==0){timer_stop(T_RHSX);}
 	/*
 	 * ---------------------------------------------------------------------
@@ -521,9 +502,7 @@ void compute_rhs(){
 	 * ---------------------------------------------------------------------
 	 */
 	if(timeron && thread_id==0){timer_start(T_RHSY);}
-    // [HACK] Start Measurement 5
-    MONITOR_START(5);
-	#pragma omp for nowait
+	#pragma omp for schedule(nonmonotonic:dynamic)
 	for(k=1; k<=nz2; k++){
 		for(j=1; j<=ny2; j++){
 			for(i=1; i<=nx2; i++){
@@ -604,8 +583,6 @@ void compute_rhs(){
 			}
 		}
 	}
-    MONITOR_STOP(5);
-    // [HACK] End Measurement 5
 	if(timeron && thread_id==0){timer_stop(T_RHSY);}
 	/*
 	 * ---------------------------------------------------------------------
@@ -613,9 +590,7 @@ void compute_rhs(){
 	 * ---------------------------------------------------------------------
 	 */
 	if(timeron && thread_id==0){timer_start(T_RHSZ);}
-    // [HACK] Start Measurement 6
-    MONITOR_START(6);
-	#pragma omp for nowait
+	#pragma omp for schedule(nonmonotonic:dynamic)
 	for(k=1; k<=nz2; k++){
 		for(j=1; j<=ny2; j++){
 			for(i=1; i<=nx2; i++){
@@ -651,17 +626,13 @@ void compute_rhs(){
 			}
 		}
 	}
-    MONITOR_STOP(6);
-    // [HACK] End Measurement 6
 	/*
 	 * ---------------------------------------------------------------------
 	 * add fourth order zeta-direction dissipation                
 	 * ---------------------------------------------------------------------
 	 */
 	k=1;
-    // [HACK] Start Measurement 7
-    MONITOR_START(7);
-	#pragma omp for nowait
+	#pragma omp for schedule(nonmonotonic:dynamic)
 	for(j=1; j<=ny2; j++){
 		for(i=1; i<=nx2; i++){
 			for(m=0; m<5; m++){
@@ -670,12 +641,8 @@ void compute_rhs(){
 			}
 		}
 	}
-    MONITOR_STOP(7);
-    // [HACK] End Measurement 7
 	k=2;
-    // [HACK] Start Measurement 8
-    MONITOR_START(8);
-	#pragma omp for nowait
+	#pragma omp for schedule(nonmonotonic:dynamic)
 	for(j=1; j<=ny2; j++){
 		for(i=1; i<=nx2; i++){
 			for(m=0; m<5; m++){
@@ -685,11 +652,7 @@ void compute_rhs(){
 			}
 		}
 	}
-    MONITOR_STOP(8);
-    // [HACK] End Measurement 8
-    // [HACK] Start Measurement 9
-    MONITOR_START(9);
-	#pragma omp for nowait
+	#pragma omp for schedule(nonmonotonic:dynamic)
 	for(k=3; k<=nz2-2; k++){
 		for(j=1; j<=ny2; j++){
 			for(i=1; i<=nx2; i++){
@@ -702,12 +665,8 @@ void compute_rhs(){
 			}
 		}
 	}
-    MONITOR_STOP(9);
-    // [HACK] End Measurement 9
 	k=nz2-1;
-    // [HACK] Start Measurement 10
-    MONITOR_START(10);
-	#pragma omp for nowait
+	#pragma omp for schedule(nonmonotonic:dynamic)
 	for(j=1; j<=ny2; j++){
 		for(i=1; i<=nx2; i++){
 			for(m=0; m<5; m++){
@@ -717,12 +676,8 @@ void compute_rhs(){
 			}
 		}
 	}
-    MONITOR_STOP(10);
-    // [HACK] End Measurement 10
 	k=nz2;
-    // [HACK] Start Measurement 11
-    MONITOR_START(11);
-	#pragma omp for nowait
+	#pragma omp for schedule(nonmonotonic:dynamic)
 	for(j=1; j<=ny2; j++){
 		for(i=1; i<=nx2; i++){
 			for(m=0; m<5; m++){
@@ -731,12 +686,8 @@ void compute_rhs(){
 			}
 		}
 	}
-    MONITOR_STOP(11);
-    // [HACK] End Measurement 11
 	if(timeron && thread_id==0){timer_stop(T_RHSZ);}
-    // [HACK] Start Measurement 12
-    MONITOR_START(12);
-	#pragma omp for nowait
+	#pragma omp for schedule(nonmonotonic:dynamic)
 	for(k=1; k<=nz2; k++){
 		for(j=1; j<=ny2; j++){
 			for(i=1; i<=nx2; i++){
@@ -746,8 +697,6 @@ void compute_rhs(){
 			}
 		}
 	}
-    MONITOR_STOP(12);
-    // [HACK] End Measurement 12
 	if(timeron && thread_id==0){timer_stop(T_RHS);}
 }
 
@@ -1326,9 +1275,7 @@ void ninvr(){
 	int thread_id = omp_get_thread_num();
 
 	if(timeron && thread_id==0){timer_start(T_NINVR);}
-    // [HACK] Start Measurement 13
-    MONITOR_START(13);
-	#pragma omp for nowait
+	#pragma omp for schedule(nonmonotonic:dynamic)
 	for(k=1; k<=nz2; k++){
 		for(j=1; j<=ny2; j++){
 			for(i=1; i<=nx2; i++){
@@ -1347,8 +1294,6 @@ void ninvr(){
 			}
 		}
 	}
-    MONITOR_STOP(13);
-    // [HACK] End Measurement 13
 	if(timeron && thread_id==0){timer_stop(T_NINVR);}
 }
 
@@ -1363,9 +1308,7 @@ void pinvr(){
 	int thread_id = omp_get_thread_num();
 
 	if(timeron && thread_id==0){timer_start(T_PINVR);}
-    // [HACK] Start Measurement 14
-    MONITOR_START(14);
-	#pragma omp for nowait
+	#pragma omp for schedule(nonmonotonic:dynamic)
 	for(k=1; k<=nz2; k++){
 		for(j=1; j<=ny2; j++){
 			for(i=1; i<=nx2; i++){
@@ -1384,8 +1327,6 @@ void pinvr(){
 			}
 		}
 	}
-    MONITOR_STOP(14);
-    // [HACK] End Measurement 14
 	if(timeron && thread_id==0){timer_stop(T_PINVR);}
 }
 
@@ -1614,9 +1555,7 @@ void txinvr(){
 	int thread_id = omp_get_thread_num();
 
 	if(timeron && thread_id==0){timer_start(T_TXINVR);}
-    // [HACK] Start Measurement 15
-    MONITOR_START(15);
-	#pragma omp for nowait
+	#pragma omp for schedule(nonmonotonic:dynamic)
 	for(k=1; k<=nz2; k++){
 		for(j=1; j<=ny2; j++){
 			for(i=1; i<=nx2; i++){
@@ -1642,8 +1581,6 @@ void txinvr(){
 			}
 		}
 	}
-    MONITOR_STOP(15);
-    // [HACK] End Measurement 15
 	if(timeron && thread_id==0){timer_stop(T_TXINVR);}
 }
 
@@ -1658,9 +1595,7 @@ void tzetar(){
 	int thread_id = omp_get_thread_num();
 
 	if(timeron && thread_id==0){timer_start(T_TZETAR);}
-    // [HACK] Start Measurement 16
-    MONITOR_START(16);
-	#pragma omp for nowait
+	#pragma omp for schedule(nonmonotonic:dynamic)
 	for(k=1; k<=nz2; k++){
 		for(j=1; j<=ny2; j++){
 			for(i=1; i<=nx2; i++){
@@ -1688,8 +1623,6 @@ void tzetar(){
 			}
 		}
 	}
-    MONITOR_STOP(16);
-    // [HACK] End Measurement 16
 	if(timeron && thread_id==0){timer_stop(T_TZETAR);}
 }
 
@@ -2005,9 +1938,7 @@ void x_solve(){
 
 	if(timeron && thread_id==0){timer_start(T_XSOLVE);}
 
-    // [HACK] Start Measurement 17
-    MONITOR_START(17);
-	#pragma omp for nowait
+	#pragma omp for schedule(nonmonotonic:dynamic)
 	for(k=1; k<=nz2; k++){
 		double cv[PROBLEM_SIZE], rhon[PROBLEM_SIZE];
 		double lhs[IMAXP+1][IMAXP+1][5];
@@ -2273,8 +2204,6 @@ void x_solve(){
 			}
 		}
 	}
-    MONITOR_STOP(17);
-    // [HACK] End Measurement 17
 	if(timeron && thread_id==0){timer_stop(T_XSOLVE);}
 	/*
 	 * ---------------------------------------------------------------------
@@ -2298,9 +2227,7 @@ void y_solve(){
 	int thread_id = omp_get_thread_num();
 
 	if(timeron && thread_id==0){timer_start(T_YSOLVE);}
-    // [HACK] Start Measurement 18
-    MONITOR_START(18);
-	#pragma omp for nowait
+	#pragma omp for schedule(nonmonotonic:dynamic)
 	for(k=1; k<=grid_points[2]-2; k++){
 		double cv[PROBLEM_SIZE], rhoq[PROBLEM_SIZE];
 		double lhs[IMAXP+1][IMAXP+1][5];
@@ -2563,8 +2490,6 @@ void y_solve(){
 			}
 		}
 	}
-    MONITOR_STOP(18);
-    // [HACK] End Measurement 18
 	if(timeron && thread_id==0){timer_stop(T_YSOLVE);}
 	pinvr();
 }
@@ -2583,9 +2508,7 @@ void z_solve(){
 	int thread_id = omp_get_thread_num();
 	
 	if(timeron && thread_id==0){timer_start(T_ZSOLVE);}
-    // [HACK] Start Measurement 19
-    MONITOR_START(19);
-	#pragma omp for nowait
+	#pragma omp for schedule(nonmonotonic:dynamic)
 	for(j=1; j<=ny2; j++){
 		double cv[PROBLEM_SIZE], rhos[PROBLEM_SIZE];
 		double lhs[IMAXP+1][IMAXP+1][5];
@@ -2854,8 +2777,6 @@ void z_solve(){
 			}
 		}
 	}
-    MONITOR_STOP(19);
-    // [HACK] End Measurement 19
 	if(timeron && thread_id==0){timer_stop(T_ZSOLVE);}
 	tzetar();
 }

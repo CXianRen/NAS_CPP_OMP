@@ -1,7 +1,3 @@
-
-#include "../common/hack.hpp"
-
-
 /*
 MIT License
 
@@ -164,6 +160,7 @@ static void z_solve();
 
 /* bt */
 int main(int argc, char* argv[]){
+printf("USING DYNAMIC SCHEDULER\n");
 #if defined(DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION)
 	printf(" DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION mode on\n");
 #endif
@@ -328,9 +325,7 @@ void add(){
 	int thread_id = omp_get_thread_num();
 
 	if(timeron && thread_id==0){timer_start(T_ADD);}
-    // [HACK] Start Measurement 1
-    MONITOR_START(1);
-	#pragma omp for nowait
+	#pragma omp for schedule(monotonic:dynamic)
 	for(k=1; k<=grid_points[2]-2; k++){
 		for(j=1; j<=grid_points[1]-2; j++){
 			for(i=1; i<=grid_points[0]-2; i++){
@@ -340,8 +335,6 @@ void add(){
 			}
 		}
 	}
-    MONITOR_STOP(1);
-    // [HACK] End Measurement 1
 	if(timeron && thread_id==0){timer_stop(T_ADD);}
 }
 
@@ -746,9 +739,7 @@ void compute_rhs(){
 	 * and the speed of sound.
 	 * ---------------------------------------------------------------------
 	 */
-    // [HACK] Start Measurement 2
-    MONITOR_START(2);
-	#pragma omp for nowait
+	#pragma omp for schedule(monotonic:dynamic)
 	for(k=0; k<=grid_points[2]-1; k++){
 		for(j=0; j<=grid_points[1]-1; j++){
 			for(i=0; i<=grid_points[0]-1; i++){
@@ -765,8 +756,6 @@ void compute_rhs(){
 			}
 		}
 	}
-    MONITOR_STOP(2);
-    // [HACK] End Measurement 2
 	/*
 	 * ---------------------------------------------------------------------
 	 * copy the exact forcing term to the right hand side; because 
@@ -774,9 +763,7 @@ void compute_rhs(){
 	 * including the boundary                   
 	 * ---------------------------------------------------------------------
 	 */
-    // [HACK] Start Measurement 3
-    MONITOR_START(3);
-	#pragma omp for nowait
+	#pragma omp for schedule(monotonic:dynamic)
 	for(k=0; k<=grid_points[2]-1; k++){
 		for(j=0; j<=grid_points[1]-1; j++){
 			for(i=0; i<=grid_points[0]-1; i++){
@@ -786,17 +773,13 @@ void compute_rhs(){
 			}
 		}
 	}
-    MONITOR_STOP(3);
-    // [HACK] End Measurement 3
 	if(timeron && thread_id==0){timer_start(T_RHSX);}
 	/*
 	 * ---------------------------------------------------------------------
 	 * compute xi-direction fluxes 
 	 * ---------------------------------------------------------------------
 	 */
-    // [HACK] Start Measurement 4
-    MONITOR_START(4);
-	#pragma omp for nowait
+	#pragma omp for schedule(monotonic:dynamic)
 	for(k=1; k<=grid_points[2]-2; k++){
 		for(j=1; j<=grid_points[1]-2; j++){
 			for(i=1; i<=grid_points[0]-2; i++){
@@ -890,8 +873,6 @@ void compute_rhs(){
 			}
 		}
 	}
-    MONITOR_STOP(4);
-    // [HACK] End Measurement 4
 	if(timeron && thread_id==0){timer_stop(T_RHSX);}
 	if(timeron && thread_id==0){timer_start(T_RHSY);}
 	/*
@@ -899,9 +880,7 @@ void compute_rhs(){
 	 * compute eta-direction fluxes 
 	 * ---------------------------------------------------------------------
 	 */
-    // [HACK] Start Measurement 5
-    MONITOR_START(5);
-	#pragma omp for nowait
+	#pragma omp for schedule(monotonic:dynamic)
 	for(k=1; k<=grid_points[2]-2; k++){
 		for(j=1; j<=grid_points[1]-2; j++){
 			for(i=1; i<=grid_points[0]-2; i++){
@@ -999,8 +978,6 @@ void compute_rhs(){
 			}
 		}
 	}
-    MONITOR_STOP(5);
-    // [HACK] End Measurement 5
 	if(timeron && thread_id==0){timer_stop(T_RHSY);}
 	if(timeron && thread_id==0){timer_start(T_RHSZ);}
 	/*
@@ -1008,9 +985,7 @@ void compute_rhs(){
 	 * compute zeta-direction fluxes 
 	 * ---------------------------------------------------------------------
 	 */
-    // [HACK] Start Measurement 6
-    MONITOR_START(6);
-	#pragma omp for nowait
+	#pragma omp for schedule(monotonic:dynamic)
 	for(k=1; k<=grid_points[2]-2; k++){
 		for(j=1; j<=grid_points[1]-2; j++){
 			for(i=1; i<=grid_points[0]-2; i++){
@@ -1061,17 +1036,13 @@ void compute_rhs(){
 			}
 		}
 	}
-    MONITOR_STOP(6);
-    // [HACK] End Measurement 6
 	/*
 	 * ---------------------------------------------------------------------
 	 * add fourth order zeta-direction dissipation                
 	 * ---------------------------------------------------------------------
 	 */
 	k=1;
-    // [HACK] Start Measurement 7
-    MONITOR_START(7);
-	#pragma omp for nowait
+	#pragma omp for schedule(monotonic:dynamic)
 	for(j=1; j<=grid_points[1]-2; j++){
 		for(i=1; i<=grid_points[0]-2; i++){
 			for(m=0; m<5; m++){
@@ -1081,12 +1052,8 @@ void compute_rhs(){
 			}
 		}
 	}
-    MONITOR_STOP(7);
-    // [HACK] End Measurement 7
 	k=2;
-    // [HACK] Start Measurement 8
-    MONITOR_START(8);
-	#pragma omp for nowait
+	#pragma omp for schedule(monotonic:dynamic)
 	for(j=1; j<=grid_points[1]-2; j++){
 		for(i=1; i<=grid_points[0]-2; i++){
 			for(m=0; m<5; m++){
@@ -1096,11 +1063,7 @@ void compute_rhs(){
 			}
 		}
 	}
-    MONITOR_STOP(8);
-    // [HACK] End Measurement 8
-    // [HACK] Start Measurement 9
-    MONITOR_START(9);
-	#pragma omp for nowait
+	#pragma omp for schedule(monotonic:dynamic)
 	for(k=3; k<=grid_points[2]-4; k++){
 		for(j=1; j<=grid_points[1]-2; j++){
 			for(i=1; i<=grid_points[0]-2; i++){
@@ -1113,12 +1076,8 @@ void compute_rhs(){
 			}
 		}
 	}
-    MONITOR_STOP(9);
-    // [HACK] End Measurement 9
 	k=grid_points[2]-3;
-    // [HACK] Start Measurement 10
-    MONITOR_START(10);
-	#pragma omp for nowait
+	#pragma omp for schedule(monotonic:dynamic)
 	for(j=1; j<=grid_points[1]-2; j++){
 		for(i=1; i<=grid_points[0]-2; i++){
 			for(m=0; m<5; m++){
@@ -1128,12 +1087,8 @@ void compute_rhs(){
 			}
 		}
 	}
-    MONITOR_STOP(10);
-    // [HACK] End Measurement 10
 	k=grid_points[2]-2;
-    // [HACK] Start Measurement 11
-    MONITOR_START(11);
-	#pragma omp for nowait
+	#pragma omp for schedule(monotonic:dynamic)
 	for(j=1; j<=grid_points[1]-2; j++){
 		for(i=1; i<=grid_points[0]-2; i++){
 			for(m=0; m<5; m++){
@@ -1143,12 +1098,8 @@ void compute_rhs(){
 			}
 		}
 	}
-    MONITOR_STOP(11);
-    // [HACK] End Measurement 11
 	if(timeron && thread_id==0){timer_stop(T_RHSZ);}
-    // [HACK] Start Measurement 12
-    MONITOR_START(12);
-	#pragma omp for nowait
+	#pragma omp for schedule(monotonic:dynamic)
 	for(k=1; k<=grid_points[2]-2; k++){
 		for(j=1; j<=grid_points[1]-2; j++){
 			for(i=1; i<=grid_points[0]-2; i++){
@@ -1158,8 +1109,6 @@ void compute_rhs(){
 			}
 		}
 	}
-    MONITOR_STOP(12);
-    // [HACK] End Measurement 12
 	if(timeron && thread_id==0){timer_stop(T_RHS);}
 }
 
@@ -1526,9 +1475,7 @@ void initialize(){
 	 * values are nonzero by initializing the whole thing here. 
 	 * ---------------------------------------------------------------------
 	 */
-    // [HACK] Start Measurement 13
-    MONITOR_START(13);
-	#pragma omp for nowait
+	#pragma omp for schedule(monotonic:dynamic)
 	for(k=0; k<=grid_points[2]-1; k++){
 		for(j=0; j<=grid_points[1]-1; j++){
 			for(i=0; i<=grid_points[0]-1; i++){
@@ -1538,16 +1485,12 @@ void initialize(){
 			}
 		}
 	}
-    MONITOR_STOP(13);
-    // [HACK] End Measurement 13
 	/* 
 	 * ---------------------------------------------------------------------
 	 * first store the "interpolated" values everywhere on the grid    
 	 * ---------------------------------------------------------------------
 	 */
-    // [HACK] Start Measurement 14
-    MONITOR_START(14);
-	#pragma omp for nowait
+	#pragma omp for schedule(monotonic:dynamic)
 	for(k=0; k<=grid_points[2]-1; k++){
 		zeta=(double)(k)* dnzm1;
 		for(j=0; j<=grid_points[1]-1; j++){
@@ -1574,8 +1517,6 @@ void initialize(){
 			}
 		}
 	}
-    MONITOR_STOP(14);
-    // [HACK] End Measurement 14
 	/* 
 	 * ---------------------------------------------------------------------
 	 * now store the exact values on the boundaries        
@@ -1585,9 +1526,7 @@ void initialize(){
 	 */
 	i=0;
 	xi=0.0;
-    // [HACK] Start Measurement 15
-    MONITOR_START(15);
-	#pragma omp for nowait
+	#pragma omp for schedule(monotonic:dynamic)
 	for(k=0; k<=grid_points[2]-1; k++){
 		zeta=(double)(k)*dnzm1;
 		for(j=0; j<=grid_points[1]-1; j++){
@@ -1598,8 +1537,6 @@ void initialize(){
 			}
 		}
 	}
-    MONITOR_STOP(15);
-    // [HACK] End Measurement 15
 	/* 
 	 * ---------------------------------------------------------------------
 	 * east face                                                      
@@ -1607,9 +1544,7 @@ void initialize(){
 	 */
 	i=grid_points[0]-1;
 	xi=1.0;
-    // [HACK] Start Measurement 16
-    MONITOR_START(16);
-	#pragma omp for nowait
+	#pragma omp for schedule(monotonic:dynamic)
 	for(k=0; k<=grid_points[2]-1; k++){
 		zeta=(double)(k)*dnzm1;
 		for(j=0; j<=grid_points[1]-1; j++){
@@ -1620,8 +1555,6 @@ void initialize(){
 			}
 		}
 	}
-    MONITOR_STOP(16);
-    // [HACK] End Measurement 16
 	/* 
 	 * ---------------------------------------------------------------------
 	 * south face                                                 
@@ -1629,9 +1562,7 @@ void initialize(){
 	 */
 	j=0;
 	eta=0.0;
-    // [HACK] Start Measurement 17
-    MONITOR_START(17);
-	#pragma omp for nowait
+	#pragma omp for schedule(monotonic:dynamic)
 	for(k=0; k<=grid_points[2]-1; k++){
 		zeta=(double)(k)*dnzm1;
 		for(i=0; i<=grid_points[0]-1; i++){
@@ -1642,8 +1573,6 @@ void initialize(){
 			}
 		}
 	}
-    MONITOR_STOP(17);
-    // [HACK] End Measurement 17
 	/* 
 	 * ---------------------------------------------------------------------
 	 * north face                                    
@@ -1651,9 +1580,7 @@ void initialize(){
 	 */
 	j=grid_points[1]-1;
 	eta=1.0;
-    // [HACK] Start Measurement 18
-    MONITOR_START(18);
-	#pragma omp for nowait
+	#pragma omp for schedule(monotonic:dynamic)
 	for(k=0; k<=grid_points[2]-1; k++){
 		zeta=(double)(k)*dnzm1;
 		for(i=0; i<=grid_points[0]-1; i++){
@@ -1664,8 +1591,6 @@ void initialize(){
 			}
 		}
 	}
-    MONITOR_STOP(18);
-    // [HACK] End Measurement 18
 	/* 
 	 * ---------------------------------------------------------------------
 	 * bottom face                                       
@@ -1673,9 +1598,7 @@ void initialize(){
 	 */
 	k=0;
 	zeta=0.0;
-    // [HACK] Start Measurement 19
-    MONITOR_START(19);
-	#pragma omp for nowait
+	#pragma omp for schedule(monotonic:dynamic)
 	for(j=0; j<=grid_points[1]-1; j++){
 		eta=(double)(j)*dnym1;
 		for(i=0; i<=grid_points[0]-1; i++){
@@ -1686,8 +1609,6 @@ void initialize(){
 			}
 		}
 	}
-    MONITOR_STOP(19);
-    // [HACK] End Measurement 19
 	/* 
 	 * ---------------------------------------------------------------------
 	 * top face     
@@ -1695,9 +1616,7 @@ void initialize(){
 	 */
 	k=grid_points[2]-1;
 	zeta=1.0;
-    // [HACK] Start Measurement 20
-    MONITOR_START(20);
-	#pragma omp for nowait
+	#pragma omp for schedule(monotonic:dynamic)
 	for(j=0; j<=grid_points[1]-1; j++){
 		eta=(double)(j)*dnym1;
 		for(i=0; i<=grid_points[0]-1; i++){
@@ -1708,8 +1627,6 @@ void initialize(){
 			}
 		}
 	}
-    MONITOR_STOP(20);
-    // [HACK] End Measurement 20
 }
 
 void lhsinit(double lhs[][3][5][5], int size){
@@ -2453,9 +2370,7 @@ void x_solve(){
 	 * determine a (labeled f) and n jacobians
 	 * ---------------------------------------------------------------------
 	 */
-    // [HACK] Start Measurement 21
-    MONITOR_START(21);
-	#pragma omp for nowait
+	#pragma omp for schedule(monotonic:dynamic)
 	for(k=1; k<=grid_points[2]-2; k++){
 		double fjac[PROBLEM_SIZE+1][5][5];
 		double njac[PROBLEM_SIZE+1][5][5];
@@ -2755,8 +2670,6 @@ void x_solve(){
 			}
 		}
 	}
-    MONITOR_STOP(21);
-    // [HACK] End Measurement 21
 	if(timeron && thread_id==0){timer_stop(T_XSOLVE);}
 }
 
@@ -2788,9 +2701,7 @@ void y_solve(){
 	 * determine a (labeled f) and n jacobians for cell c
 	 * ---------------------------------------------------------------------
 	 */
-    // [HACK] Start Measurement 22
-    MONITOR_START(22);
-	#pragma omp for nowait
+	#pragma omp for schedule(monotonic:dynamic)
 	for(k=1; k<=grid_points[2]-2; k++){
 		double fjac[PROBLEM_SIZE+1][5][5];
 		double njac[PROBLEM_SIZE+1][5][5];
@@ -3092,8 +3003,6 @@ void y_solve(){
 			}
 		}
 	}
-    MONITOR_STOP(22);
-    // [HACK] End Measurement 22
 	if(timeron && thread_id==0){timer_stop(T_YSOLVE);}
 }
 
@@ -3125,9 +3034,7 @@ void z_solve(){
 	 * determine c (labeled f) and s jacobians
 	 * ---------------------------------------------------------------------
 	 */
-    // [HACK] Start Measurement 23
-    MONITOR_START(23);
-	#pragma omp for nowait
+	#pragma omp for schedule(monotonic:dynamic)
 	for(j=1; j<=grid_points[1]-2; j++){
 		double fjac[PROBLEM_SIZE+1][5][5];
 		double njac[PROBLEM_SIZE+1][5][5];
@@ -3434,7 +3341,5 @@ void z_solve(){
 			}
 		}
 	}
-    MONITOR_STOP(23);
-    // [HACK] End Measurement 23
 	if(timeron && thread_id==0){timer_stop(T_ZSOLVE);}
 }

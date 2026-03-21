@@ -115,3 +115,16 @@ extern void c_print_results(char* name,
 		char* cflags,
 		char* clinkflags,
 		char* rand);
+
+
+#include <omp.h>
+
+inline const char* sched_name(omp_sched_t kind) {
+    switch(kind) {
+        case omp_sched_static: return "static";
+        case omp_sched_dynamic: return "dynamic";
+        case omp_sched_guided: return "guided";
+        case omp_sched_auto: return "auto";
+        default: return "unknown";
+    }
+}

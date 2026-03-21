@@ -58,8 +58,6 @@ Authors of the OpenMP code:
 #include "omp.h"
 #include "../common/npb-CPP.hpp"
 #include "npbparams.hpp"
-#include <sys/time.h>
-#include <time.h>
 
 /*
  * ---------------------------------------------------------------------
@@ -241,7 +239,7 @@ static void verify(int d1,
 
 /* ft */
 int main(int argc, char **argv){
-printf("USING TASKLOOP SCHEDULER\n");
+printf("USING DYNAMIC SCHEDULER\n");
 #if defined(DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION)
 	printf(" DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION mode on\n");
 #endif
@@ -286,10 +284,6 @@ printf("USING TASKLOOP SCHEDULER\n");
 	compute_initial_conditions(u1, dims[0], dims[1], dims[2]);
 
 	fft_init(MAXDIM);
-
-	// struct timeval tv1;
-    // gettimeofday(&tv1, NULL);
-    // long long start = tv1.tv_sec * 1000LL + tv1.tv_usec / 1000;
 
 	#pragma omp parallel private(iter) firstprivate(niter)
     {
@@ -347,10 +341,6 @@ printf("USING TASKLOOP SCHEDULER\n");
 		}
 	} /* end parallel */
 	
-	// gettimeofday(&tv1, NULL);
-    // long long end = tv1.tv_sec * 1000LL + tv1.tv_usec / 1000;
-	// printf("%lld\t%lld\t%.3f\n", start, end, (end - start) / 1000.0);
-
 	verify(NX, NY, NZ, niter, &verified, &class_npb);
 
 	timer_stop(T_TOTAL);
@@ -414,23 +404,18 @@ static void cffts1(int is,
 			timer_start(T_FFTX);
 	}
 	
-	#pragma omp single
-	{
-		#pragma omp taskloop private(j, jj, i)
-		for (k=0; k<d3; k++) {
-			for(jj=0; jj<=d2-FFTBLOCK; jj+=FFTBLOCK){
-				dcomplex y1_local[d1][FFTBLOCK];
-				dcomplex y2_local[d1][FFTBLOCKPAD];
-				for(j=0; j<FFTBLOCK; j++){
-					for(i=0; i<d1; i++){
-						y1_local[i][j] = x[k][j+jj][i];
-					}
+	#pragma omp for schedule(nonmonotonic:dynamic)	
+	for(k=0; k<d3; k++){
+		for(jj=0; jj<=d2-FFTBLOCK; jj+=FFTBLOCK){
+			for(j=0; j<FFTBLOCK; j++){
+				for(i=0; i<d1; i++){
+					y1[i][j] = x[k][j+jj][i];
 				}
-				cfftz(is, logd1, d1, y1_local, y2_local);
-				for(j=0; j<FFTBLOCK; j++){
-					for(i=0; i<d1; i++){
-						xout[k][j+jj][i] = y1_local[i][j];
-					}
+			}
+			cfftz(is, logd1, d1, y1, y2);
+			for(j=0; j<FFTBLOCK; j++){
+				for(i=0; i<d1; i++){
+					xout[k][j+jj][i] = y1[i][j];
 				}
 			}
 		}
@@ -463,23 +448,18 @@ static void cffts2(int is,
 			timer_start(T_FFTY);
 	}
 
-	#pragma omp single
-	{
-		#pragma omp taskloop private(ii, j, i)
-		for (k=0; k<d3; k++) {
-			for(ii=0; ii<=d1-FFTBLOCK; ii+=FFTBLOCK){
-				dcomplex y1_local[d2][FFTBLOCK];
-				dcomplex y2_local[d2][FFTBLOCKPAD];
-				for(j=0; j<d2; j++){
-					for(i=0; i<FFTBLOCK; i++){
-						y1_local[j][i] = x[k][j][i+ii];
-					}
+	#pragma omp for schedule(nonmonotonic:dynamic)	
+	for(k=0; k<d3; k++){
+		for(ii=0; ii<=d1-FFTBLOCK; ii+=FFTBLOCK){
+			for(j=0; j<d2; j++){
+				for(i=0; i<FFTBLOCK; i++){
+					y1[j][i] = x[k][j][i+ii];
 				}
-				cfftz(is, logd2, d2, y1_local, y2_local);
-				for(j=0; j<d2; j++){
-					for(i=0; i<FFTBLOCK; i++){
-						xout[k][j][i+ii] = y1_local[j][i];
-					}
+			}
+			cfftz(is, logd2, d2, y1, y2);
+			for(j=0; j<d2; j++){
+				for(i=0; i<FFTBLOCK; i++){
+					xout[k][j][i+ii] = y1[j][i];
 				}
 			}
 		}
@@ -512,23 +492,18 @@ static void cffts3(int is,
 			timer_start(T_FFTZ);
 	}
 
-	#pragma omp single
-	{
-		#pragma omp taskloop private(ii, k, i)
-		for (j=0; j<d2; j++) {
-			for(ii=0; ii<=d1-FFTBLOCK; ii+=FFTBLOCK){
-				dcomplex y1_local[d3][FFTBLOCK];
-				dcomplex y2_local[d3][FFTBLOCKPAD];
-				for(k=0; k<d3; k++){
-					for(i=0; i<FFTBLOCK; i++){
-						y1_local[k][i] = x[k][j][i+ii];
-					}
+	#pragma omp for schedule(nonmonotonic:dynamic)
+	for(j=0; j<d2; j++){
+		for(ii=0; ii<=d1-FFTBLOCK; ii+=FFTBLOCK){
+			for(k=0; k<d3; k++){
+				for(i=0; i<FFTBLOCK; i++){
+					y1[k][i] = x[k][j][i+ii];
 				}
-				cfftz(is, logd3, d3, y1_local, y2_local);
-				for(k=0; k<d3; k++){
-					for(i=0; i<FFTBLOCK; i++){
-						xout[k][j][i+ii] = y1_local[k][i];
-					}
+			}
+			cfftz(is, logd3, d3, y1, y2);
+			for(k=0; k<d3; k++){
+				for(i=0; i<FFTBLOCK; i++){
+					xout[k][j][i+ii] = y1[k][i];
 				}
 			}
 		}
@@ -607,23 +582,16 @@ static void checksum(int i,
 	#pragma omp single
 		chk = dcomplex_create(0.0, 0.0);
 
-	#pragma omp single
-	{
-		#pragma omp taskloop private(r, q, s, chk_worker)
-		for (j=1; j<=1024; j++) {
-			chk_worker = dcomplex_create(0.0, 0.0); // MANUAL: reintialize chk_worker for every task
-			q = j % NX;
-			r = (3*j) % NY;
-			s = (5*j) % NZ;
-			chk_worker = dcomplex_add(chk_worker, u1[s][r][q]);
-			
-			#pragma omp critical 
-				chk = dcomplex_add(chk, chk_worker); // MANUAL: add each task's chk_worker to chk
-		}
+	#pragma omp for schedule(nonmonotonic:dynamic)
+	for(j=1; j<=1024; j++){
+		q = j % NX;
+		r = (3*j) % NY;
+		s = (5*j) % NZ;
+		chk_worker = dcomplex_add(chk_worker, u1[s][r][q]);
 	}
 
-	// #pragma omp critical
-	// 	chk = dcomplex_add(chk, chk_worker);
+	#pragma omp critical
+		chk = dcomplex_add(chk, chk_worker);
 	
 	#pragma omp barrier
 	#pragma omp single
@@ -734,15 +702,12 @@ static void evolve(void* pointer_u0,
 	double (*twiddle)[NY][NX] = (double(*)[NY][NX])pointer_twiddle;
 
 	int i, j, k;
-	#pragma omp single
-	{
-		#pragma omp taskloop private(j, i)
-		for (k=0; k<d3; k++) {
-			for(j=0; j<d2; j++){
-				for(i=0; i<d1; i++){
-					u0[k][j][i] = dcomplex_mul2(u0[k][j][i], twiddle[k][j][i]);
-					u1[k][j][i] = u0[k][j][i];
-				}
+	#pragma omp for schedule(nonmonotonic:dynamic)
+	for(k=0; k<d3; k++){
+		for(j=0; j<d2; j++){
+			for(i=0; i<d1; i++){
+				u0[k][j][i] = dcomplex_mul2(u0[k][j][i], twiddle[k][j][i]);
+				u1[k][j][i] = u0[k][j][i];
 			}
 		}
 	}
