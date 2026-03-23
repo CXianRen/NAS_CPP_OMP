@@ -11,14 +11,15 @@ function build() {
 
 build "C" ""
 build "C" "_dynamic"
+build "C" "_monodynamic"
 build "C" "_taskloop"
 
 build "D" ""
 build "D" "_dynamic"
+build "D" "_monodynamic"
 build "D" "_taskloop"
 
 build "S" ""
 build "S" "_dynamic"
+build "S" "_monodynamic"
 build "S" "_taskloop"
-
-
