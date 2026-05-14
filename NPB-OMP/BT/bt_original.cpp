@@ -160,7 +160,6 @@ static void z_solve();
 
 /* bt */
 int main(int argc, char* argv[]){
-printf("USING DYNAMIC SCHEDULER\n");
 #if defined(DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION)
 	printf(" DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION mode on\n");
 #endif
@@ -325,7 +324,7 @@ void add(){
 	int thread_id = omp_get_thread_num();
 
 	if(timeron && thread_id==0){timer_start(T_ADD);}
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(k=1; k<=grid_points[2]-2; k++){
 		for(j=1; j<=grid_points[1]-2; j++){
 			for(i=1; i<=grid_points[0]-2; i++){
@@ -739,7 +738,7 @@ void compute_rhs(){
 	 * and the speed of sound.
 	 * ---------------------------------------------------------------------
 	 */
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(k=0; k<=grid_points[2]-1; k++){
 		for(j=0; j<=grid_points[1]-1; j++){
 			for(i=0; i<=grid_points[0]-1; i++){
@@ -763,7 +762,7 @@ void compute_rhs(){
 	 * including the boundary                   
 	 * ---------------------------------------------------------------------
 	 */
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(k=0; k<=grid_points[2]-1; k++){
 		for(j=0; j<=grid_points[1]-1; j++){
 			for(i=0; i<=grid_points[0]-1; i++){
@@ -779,7 +778,7 @@ void compute_rhs(){
 	 * compute xi-direction fluxes 
 	 * ---------------------------------------------------------------------
 	 */
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(k=1; k<=grid_points[2]-2; k++){
 		for(j=1; j<=grid_points[1]-2; j++){
 			for(i=1; i<=grid_points[0]-2; i++){
@@ -880,7 +879,7 @@ void compute_rhs(){
 	 * compute eta-direction fluxes 
 	 * ---------------------------------------------------------------------
 	 */
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(k=1; k<=grid_points[2]-2; k++){
 		for(j=1; j<=grid_points[1]-2; j++){
 			for(i=1; i<=grid_points[0]-2; i++){
@@ -985,7 +984,7 @@ void compute_rhs(){
 	 * compute zeta-direction fluxes 
 	 * ---------------------------------------------------------------------
 	 */
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(k=1; k<=grid_points[2]-2; k++){
 		for(j=1; j<=grid_points[1]-2; j++){
 			for(i=1; i<=grid_points[0]-2; i++){
@@ -1042,7 +1041,7 @@ void compute_rhs(){
 	 * ---------------------------------------------------------------------
 	 */
 	k=1;
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(j=1; j<=grid_points[1]-2; j++){
 		for(i=1; i<=grid_points[0]-2; i++){
 			for(m=0; m<5; m++){
@@ -1053,7 +1052,7 @@ void compute_rhs(){
 		}
 	}
 	k=2;
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(j=1; j<=grid_points[1]-2; j++){
 		for(i=1; i<=grid_points[0]-2; i++){
 			for(m=0; m<5; m++){
@@ -1063,7 +1062,7 @@ void compute_rhs(){
 			}
 		}
 	}
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(k=3; k<=grid_points[2]-4; k++){
 		for(j=1; j<=grid_points[1]-2; j++){
 			for(i=1; i<=grid_points[0]-2; i++){
@@ -1077,7 +1076,7 @@ void compute_rhs(){
 		}
 	}
 	k=grid_points[2]-3;
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(j=1; j<=grid_points[1]-2; j++){
 		for(i=1; i<=grid_points[0]-2; i++){
 			for(m=0; m<5; m++){
@@ -1088,7 +1087,7 @@ void compute_rhs(){
 		}
 	}
 	k=grid_points[2]-2;
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(j=1; j<=grid_points[1]-2; j++){
 		for(i=1; i<=grid_points[0]-2; i++){
 			for(m=0; m<5; m++){
@@ -1099,7 +1098,7 @@ void compute_rhs(){
 		}
 	}
 	if(timeron && thread_id==0){timer_stop(T_RHSZ);}
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(k=1; k<=grid_points[2]-2; k++){
 		for(j=1; j<=grid_points[1]-2; j++){
 			for(i=1; i<=grid_points[0]-2; i++){
@@ -1475,7 +1474,7 @@ void initialize(){
 	 * values are nonzero by initializing the whole thing here. 
 	 * ---------------------------------------------------------------------
 	 */
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(k=0; k<=grid_points[2]-1; k++){
 		for(j=0; j<=grid_points[1]-1; j++){
 			for(i=0; i<=grid_points[0]-1; i++){
@@ -1490,7 +1489,7 @@ void initialize(){
 	 * first store the "interpolated" values everywhere on the grid    
 	 * ---------------------------------------------------------------------
 	 */
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(k=0; k<=grid_points[2]-1; k++){
 		zeta=(double)(k)* dnzm1;
 		for(j=0; j<=grid_points[1]-1; j++){
@@ -1526,7 +1525,7 @@ void initialize(){
 	 */
 	i=0;
 	xi=0.0;
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(k=0; k<=grid_points[2]-1; k++){
 		zeta=(double)(k)*dnzm1;
 		for(j=0; j<=grid_points[1]-1; j++){
@@ -1544,7 +1543,7 @@ void initialize(){
 	 */
 	i=grid_points[0]-1;
 	xi=1.0;
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(k=0; k<=grid_points[2]-1; k++){
 		zeta=(double)(k)*dnzm1;
 		for(j=0; j<=grid_points[1]-1; j++){
@@ -1562,7 +1561,7 @@ void initialize(){
 	 */
 	j=0;
 	eta=0.0;
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(k=0; k<=grid_points[2]-1; k++){
 		zeta=(double)(k)*dnzm1;
 		for(i=0; i<=grid_points[0]-1; i++){
@@ -1580,7 +1579,7 @@ void initialize(){
 	 */
 	j=grid_points[1]-1;
 	eta=1.0;
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(k=0; k<=grid_points[2]-1; k++){
 		zeta=(double)(k)*dnzm1;
 		for(i=0; i<=grid_points[0]-1; i++){
@@ -1598,7 +1597,7 @@ void initialize(){
 	 */
 	k=0;
 	zeta=0.0;
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(j=0; j<=grid_points[1]-1; j++){
 		eta=(double)(j)*dnym1;
 		for(i=0; i<=grid_points[0]-1; i++){
@@ -1616,7 +1615,7 @@ void initialize(){
 	 */
 	k=grid_points[2]-1;
 	zeta=1.0;
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(j=0; j<=grid_points[1]-1; j++){
 		eta=(double)(j)*dnym1;
 		for(i=0; i<=grid_points[0]-1; i++){
@@ -2040,11 +2039,7 @@ void verify(int no_time_steps, char* class_npb, boolean* verified){
 	 * ---------------------------------------------------------------------
 	 */  
 	error_norm(xce);
-	#pragma omp parallel
-	{
-		compute_rhs();
-	}
-	
+	compute_rhs();
 	rhs_norm(xcr);
 	for(m=0; m<5; m++){
 		xcr[m]=xcr[m]/dt;
@@ -2374,7 +2369,7 @@ void x_solve(){
 	 * determine a (labeled f) and n jacobians
 	 * ---------------------------------------------------------------------
 	 */
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(k=1; k<=grid_points[2]-2; k++){
 		double fjac[PROBLEM_SIZE+1][5][5];
 		double njac[PROBLEM_SIZE+1][5][5];
@@ -2705,7 +2700,7 @@ void y_solve(){
 	 * determine a (labeled f) and n jacobians for cell c
 	 * ---------------------------------------------------------------------
 	 */
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(k=1; k<=grid_points[2]-2; k++){
 		double fjac[PROBLEM_SIZE+1][5][5];
 		double njac[PROBLEM_SIZE+1][5][5];
@@ -3038,7 +3033,7 @@ void z_solve(){
 	 * determine c (labeled f) and s jacobians
 	 * ---------------------------------------------------------------------
 	 */
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(j=1; j<=grid_points[1]-2; j++){
 		double fjac[PROBLEM_SIZE+1][5][5];
 		double njac[PROBLEM_SIZE+1][5][5];

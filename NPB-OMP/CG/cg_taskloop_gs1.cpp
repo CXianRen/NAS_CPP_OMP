@@ -59,6 +59,9 @@ Authors of the OpenMP code:
 #include "../common/npb-CPP.hpp"
 #include "npbparams.hpp"
 
+
+static int grain_size = 1;
+
 /*
  * ---------------------------------------------------------------------
  * note: please observe that in the routine conj_grad three 
@@ -174,7 +177,13 @@ static void vecset(int n,
 
 /* cg */
 int main(int argc, char **argv){
-printf("USING DYNAMIC SCHEDULER\n");
+// read from environment variable
+char* env_gs = std::getenv("GS");
+if(env_gs != NULL){
+	grain_size = std::atoi(env_gs);
+}
+printf("GS: %d\n", grain_size);
+printf("USING TASKLOOP SCHEDULER\n");
 #if defined(DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION)
 	printf(" DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION mode on\n");
 #endif
@@ -274,7 +283,7 @@ printf("USING DYNAMIC SCHEDULER\n");
 	 */
 	// #pragma omp parallel private(it,i,j,k)	
 	// {
-	// 	#pragma omp xfor nowait
+	// 	#pragma omp for nowait
 		for(j = 0; j < lastrow - firstrow + 1; j++){
 			for(k = rowstr[j]; k < rowstr[j+1]; k++){
 				colidx[k] = colidx[k] - firstcol;
@@ -282,11 +291,11 @@ printf("USING DYNAMIC SCHEDULER\n");
 		}
 
 		/* set starting vector to (1, 1, .... 1) */
-		// #pragma omp xfor nowait
+		// #pragma omp for nowait
 		for(i = 0; i < NA+1; i++){
 			x[i] = 1.0;
 		}
-		// #pragma omp xfor nowait
+		// #pragma omp for nowait
 		for(j = 0; j<lastcol-firstcol+1; j++){
 			q[j] = 0.0;
 			z[j] = 0.0;
@@ -321,7 +330,7 @@ printf("USING DYNAMIC SCHEDULER\n");
 		// 	 * so, first: (z.z)
 		// 	 * --------------------------------------------------------------------
 		// 	 */
-		// 	#pragma omp xfor reduction(+:norm_temp1,norm_temp2)
+		// 	#pragma omp for reduction(+:norm_temp1,norm_temp2)
 		// 	for(j = 0; j < lastcol - firstcol + 1; j++){
 		// 		norm_temp1 += x[j] * z[j];
 		// 		norm_temp2 += + z[j] * z[j];
@@ -331,7 +340,7 @@ printf("USING DYNAMIC SCHEDULER\n");
 		// 		norm_temp2 = 1.0 / sqrt(norm_temp2);
 
 		// 	/* normalize z to obtain x */
-		// 	#pragma omp xfor
+		// 	#pragma omp for
 		// 	for(j = 0; j < lastcol - firstcol + 1; j++){     
 		// 		x[j] = norm_temp2 * z[j];
 		// 	}
@@ -339,7 +348,7 @@ printf("USING DYNAMIC SCHEDULER\n");
 		// } /* end of do one iteration untimed */
 
 		/* set starting vector to (1, 1, .... 1) */	
-		// #pragma omp xfor
+		// #pragma omp for
 		// for(i = 0; i < NA+1; i++){
 		// 	x[i] = 1.0;
 		// }
@@ -388,10 +397,13 @@ printf("USING DYNAMIC SCHEDULER\n");
 			 * so, first: (z.z)
 			 * --------------------------------------------------------------------
 			 */
-			#pragma omp for schedule(nonmonotonic:dynamic) reduction(+:norm_temp1,norm_temp2)
-			for(j = 0; j < lastcol - firstcol + 1; j++){
-				norm_temp1 += x[j]*z[j];
-				norm_temp2 += z[j]*z[j];
+			#pragma omp single
+			{
+				#pragma omp taskloop grainsize(grain_size) reduction(+:norm_temp1,norm_temp2)
+				for (j = 0; j < lastcol - firstcol + 1; j++) {
+					norm_temp1 += x[j]*z[j];
+					norm_temp2 += z[j]*z[j];
+				}
 			}
 			#pragma omp single
 			{
@@ -405,9 +417,12 @@ printf("USING DYNAMIC SCHEDULER\n");
 				printf("    %5d       %20.14e%20.13e\n", it, rnorm, zeta);
 			}
 			/* normalize z to obtain x */
-			#pragma omp for schedule(nonmonotonic:dynamic)
-			for(j = 0; j < lastcol - firstcol + 1; j++){
-				x[j] = norm_temp2 * z[j];
+			#pragma omp single
+			{
+				#pragma omp taskloop grainsize(grain_size)
+				for (j = 0; j < lastcol - firstcol + 1; j++) {
+					x[j] = norm_temp2 * z[j];
+				}
 			}
 		} /* end of main iter inv pow meth */
 	} /* end parallel */
@@ -529,12 +544,15 @@ static void conj_grad(int colidx[],
 		sum = 0.0;
 	}
 	/* initialize the CG algorithm */
-	#pragma omp for schedule(nonmonotonic:dynamic)
-	for(j = 0; j < naa+1; j++){
-		q[j] = 0.0;
-		z[j] = 0.0;
-		r[j] = x[j];
-		p[j] = r[j];
+	#pragma omp single
+	{
+		#pragma omp taskloop grainsize(grain_size)
+		for (j = 0; j < naa+1; j++) {
+			q[j] = 0.0;
+			z[j] = 0.0;
+			r[j] = x[j];
+			p[j] = r[j];
+		}
 	}
  
 	/*
@@ -543,9 +561,12 @@ static void conj_grad(int colidx[],
 	 * now, obtain the norm of r: First, sum squares of r elements locally...
 	 * --------------------------------------------------------------------
 	 */
-	#pragma omp for schedule(nonmonotonic:dynamic) reduction(+:rho)
-	for(j = 0; j < lastcol - firstcol + 1; j++){
-		rho += r[j]*r[j];
+	#pragma omp single
+	{
+		#pragma omp taskloop grainsize(grain_size) reduction(+:rho)
+		for (j = 0; j < lastcol - firstcol + 1; j++) {
+			rho += r[j]*r[j];
+		}
 	}
 
 	/* the conj grad iteration loop */
@@ -576,13 +597,16 @@ static void conj_grad(int colidx[],
 			rho = 0.0;
 		}
 
-		#pragma omp for schedule(nonmonotonic:dynamic) //nowait
-		for(j = 0; j < lastrow - firstrow + 1; j++){
-			suml = 0.0;
-			for(k = rowstr[j]; k < rowstr[j+1]; k++){
-				suml += a[k]*p[colidx[k]];
+		#pragma omp single
+		{
+			#pragma omp taskloop grainsize(grain_size) private(suml, k)
+			for (j = 0; j < lastrow - firstrow + 1; j++) {
+				suml = 0.0;
+				for(k = rowstr[j]; k < rowstr[j+1]; k++){
+					suml += a[k]*p[colidx[k]];
+				}
+				q[j] = suml;
 			}
-			q[j] = suml;
 		}
 
 		/*
@@ -591,9 +615,12 @@ static void conj_grad(int colidx[],
 		 * --------------------------------------------------------------------
 		 */
 
-		#pragma omp for schedule(nonmonotonic:dynamic) reduction(+:d)
-		for (j = 0; j < lastcol - firstcol + 1; j++) {
-			d += p[j]*q[j];
+		#pragma omp single
+		{
+			#pragma omp taskloop grainsize(grain_size) reduction(+:d)
+			for (j = 0; j < lastcol - firstcol + 1; j++) {
+				d += p[j]*q[j];
+			}
 		}
 
 		/*
@@ -610,18 +637,20 @@ static void conj_grad(int colidx[],
 		 * ---------------------------------------------------------------------
 		 */
 
-		#pragma omp for schedule(nonmonotonic:dynamic) reduction(+:rho)
-		for(j = 0; j < lastcol - firstcol + 1; j++){
-			z[j] += alpha*p[j];
-			r[j] -= alpha*q[j];
-
-			/*
-			 * ---------------------------------------------------------------------
-			 * rho = r.r
-			 * now, obtain the norm of r: first, sum squares of r elements locally...
-			 * ---------------------------------------------------------------------
-			 */
-			rho += r[j]*r[j];
+		#pragma omp single
+		{
+			#pragma omp taskloop grainsize(grain_size) reduction(+:rho)
+			for (j = 0; j < lastcol - firstcol + 1; j++) {
+				z[j] += alpha*p[j];
+				r[j] -= alpha*q[j];
+				/*
+				 * ---------------------------------------------------------------------
+				 * rho = r.r
+				 * now, obtain the norm of r: first, sum squares of r elements locally...
+				 * ---------------------------------------------------------------------
+				 */
+				rho += r[j]*r[j];
+			}
 		}
 
 		/*
@@ -636,9 +665,12 @@ static void conj_grad(int colidx[],
 		 * p = r + beta*p
 		 * ---------------------------------------------------------------------
 		 */
-		#pragma omp for schedule(nonmonotonic:dynamic)
-		for(j = 0; j < lastcol - firstcol + 1; j++){
-			p[j] = r[j] + beta*p[j];
+		#pragma omp single
+		{
+			#pragma omp taskloop grainsize(grain_size)
+			for (j = 0; j < lastcol - firstcol + 1; j++) {
+				p[j] = r[j] + beta*p[j];
+			}
 		}
 	} /* end of do cgit=1, cgitmax */
 
@@ -649,13 +681,16 @@ static void conj_grad(int colidx[],
 	 * the partition submatrix-vector multiply
 	 * ---------------------------------------------------------------------
 	 */
-	#pragma omp for schedule(nonmonotonic:dynamic) //nowait
-	for(j = 0; j < lastrow - firstrow + 1; j++){
-		suml = 0.0;
-		for(k = rowstr[j]; k < rowstr[j+1]; k++){
-			suml += a[k]*z[colidx[k]];
+	#pragma omp single
+	{
+		#pragma omp taskloop grainsize(grain_size) private(suml, k)
+		for (j = 0; j < lastrow - firstrow + 1; j++) {
+			suml = 0.0;
+			for(k = rowstr[j]; k < rowstr[j+1]; k++){
+				suml += a[k]*z[colidx[k]];
+			}
+			r[j] = suml;
 		}
-		r[j] = suml;
 	}
 
 	/*
@@ -663,10 +698,13 @@ static void conj_grad(int colidx[],
 	 * at this point, r contains A.z
 	 * ---------------------------------------------------------------------
 	 */
-	#pragma omp for schedule(nonmonotonic:dynamic) reduction(+:sum)
-	for(j = 0; j < lastcol-firstcol+1; j++){
-		suml   = x[j] - r[j];
-		sum += suml*suml;
+	#pragma omp single
+	{
+		#pragma omp taskloop grainsize(grain_size) private(suml) reduction(+:sum)
+		for (j = 0; j < lastcol-firstcol+1; j++) {
+			suml   = x[j] - r[j];
+			sum += suml*suml;
+		}
 	}
 	#pragma omp single
 		*rnorm = sqrt(sum);

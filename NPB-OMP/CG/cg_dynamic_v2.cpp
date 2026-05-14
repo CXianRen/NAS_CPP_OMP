@@ -174,7 +174,6 @@ static void vecset(int n,
 
 /* cg */
 int main(int argc, char **argv){
-printf("USING DYNAMIC SCHEDULER\n");
 #if defined(DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION)
 	printf(" DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION mode on\n");
 #endif
@@ -237,6 +236,7 @@ printf("USING DYNAMIC SCHEDULER\n");
 	}
 
 	printf("\n\n NAS Parallel Benchmarks 4.1 Parallel C++ version with OpenMP - CG Benchmark\n\n");
+	printf(" Scheduler: Dynamic V2\n");
 	printf(" Size: %11d\n", NA);
 	printf(" Iterations: %5d\n", NITER);
 
@@ -274,7 +274,7 @@ printf("USING DYNAMIC SCHEDULER\n");
 	 */
 	// #pragma omp parallel private(it,i,j,k)	
 	// {
-	// 	#pragma omp xfor nowait
+	// 	#pragma omp for nowait
 		for(j = 0; j < lastrow - firstrow + 1; j++){
 			for(k = rowstr[j]; k < rowstr[j+1]; k++){
 				colidx[k] = colidx[k] - firstcol;
@@ -282,11 +282,11 @@ printf("USING DYNAMIC SCHEDULER\n");
 		}
 
 		/* set starting vector to (1, 1, .... 1) */
-		// #pragma omp xfor nowait
+		// #pragma omp for nowait
 		for(i = 0; i < NA+1; i++){
 			x[i] = 1.0;
 		}
-		// #pragma omp xfor nowait
+		// #pragma omp for nowait
 		for(j = 0; j<lastcol-firstcol+1; j++){
 			q[j] = 0.0;
 			z[j] = 0.0;
@@ -321,7 +321,7 @@ printf("USING DYNAMIC SCHEDULER\n");
 		// 	 * so, first: (z.z)
 		// 	 * --------------------------------------------------------------------
 		// 	 */
-		// 	#pragma omp xfor reduction(+:norm_temp1,norm_temp2)
+		// 	#pragma omp for reduction(+:norm_temp1,norm_temp2)
 		// 	for(j = 0; j < lastcol - firstcol + 1; j++){
 		// 		norm_temp1 += x[j] * z[j];
 		// 		norm_temp2 += + z[j] * z[j];
@@ -331,7 +331,7 @@ printf("USING DYNAMIC SCHEDULER\n");
 		// 		norm_temp2 = 1.0 / sqrt(norm_temp2);
 
 		// 	/* normalize z to obtain x */
-		// 	#pragma omp xfor
+		// 	#pragma omp for
 		// 	for(j = 0; j < lastcol - firstcol + 1; j++){     
 		// 		x[j] = norm_temp2 * z[j];
 		// 	}
@@ -339,7 +339,7 @@ printf("USING DYNAMIC SCHEDULER\n");
 		// } /* end of do one iteration untimed */
 
 		/* set starting vector to (1, 1, .... 1) */	
-		// #pragma omp xfor
+		// #pragma omp for
 		// for(i = 0; i < NA+1; i++){
 		// 	x[i] = 1.0;
 		// }
@@ -576,7 +576,7 @@ static void conj_grad(int colidx[],
 			rho = 0.0;
 		}
 
-		#pragma omp for schedule(nonmonotonic:dynamic) //nowait
+		#pragma omp for schedule(nonmonotonic:dynamic) // nowait
 		for(j = 0; j < lastrow - firstrow + 1; j++){
 			suml = 0.0;
 			for(k = rowstr[j]; k < rowstr[j+1]; k++){

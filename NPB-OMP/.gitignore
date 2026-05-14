@@ -4,3 +4,5 @@ bin/*
 sys/setparams
 
 **/npbparams.hpp
+
+**/bin*

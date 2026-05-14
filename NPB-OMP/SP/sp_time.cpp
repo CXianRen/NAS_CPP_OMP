@@ -169,7 +169,6 @@ void z_solve();
 
 /* sp */
 int main(int argc, char* argv[]){
-printf("USING DYNAMIC SCHEDULER\n");
 #if defined(DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION)
 	printf(" DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION mode on\n");
 #endif
@@ -254,10 +253,10 @@ printf("USING DYNAMIC SCHEDULER\n");
 	#pragma omp parallel firstprivate(niter) private(step)
   	{
 		for(step=1;step<=niter;step++){
-			if((step%20)==0||step==1){
+			// if((step%20)==0||step==1){
 				#pragma omp master
 					printf(" Time step %4d\n",step);
-			}
+			// }
 			adi();
 		}
 	}
@@ -337,7 +336,7 @@ void add(){
 	int thread_id = omp_get_thread_num();
 
 	if(timeron && thread_id==0){timer_start(T_ADD);}
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(k=1; k<=nz2; k++){
 		for(j=1; j<=ny2; j++){
 			for(i=1; i<=nx2; i++){
@@ -371,7 +370,7 @@ void compute_rhs(){
 	 * and the speed of sound. 
 	 * ---------------------------------------------------------------------
 	 */
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(k=0; k<=grid_points[2]-1; k++){
 		for(j=0; j<=grid_points[1]-1; j++){
 			for(i=0; i<=grid_points[0]-1; i++){
@@ -402,7 +401,7 @@ void compute_rhs(){
 	 * including the boundary                   
 	 * ---------------------------------------------------------------------
 	 */
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(k=0; k<=grid_points[2]-1; k++){
 		for(j=0; j<=grid_points[1]-1; j++){
 			for(i=0; i<=grid_points[0]-1; i++){
@@ -418,7 +417,7 @@ void compute_rhs(){
 	 * ---------------------------------------------------------------------
 	 */
 	if(timeron && thread_id==0){timer_start(T_RHSX);}
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(k=1; k<=nz2; k++){
 		for(j=1; j<=ny2; j++){
 			for(i=1; i<=nx2; i++){
@@ -502,7 +501,7 @@ void compute_rhs(){
 	 * ---------------------------------------------------------------------
 	 */
 	if(timeron && thread_id==0){timer_start(T_RHSY);}
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(k=1; k<=nz2; k++){
 		for(j=1; j<=ny2; j++){
 			for(i=1; i<=nx2; i++){
@@ -590,7 +589,7 @@ void compute_rhs(){
 	 * ---------------------------------------------------------------------
 	 */
 	if(timeron && thread_id==0){timer_start(T_RHSZ);}
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(k=1; k<=nz2; k++){
 		for(j=1; j<=ny2; j++){
 			for(i=1; i<=nx2; i++){
@@ -632,7 +631,7 @@ void compute_rhs(){
 	 * ---------------------------------------------------------------------
 	 */
 	k=1;
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(j=1; j<=ny2; j++){
 		for(i=1; i<=nx2; i++){
 			for(m=0; m<5; m++){
@@ -642,7 +641,7 @@ void compute_rhs(){
 		}
 	}
 	k=2;
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(j=1; j<=ny2; j++){
 		for(i=1; i<=nx2; i++){
 			for(m=0; m<5; m++){
@@ -652,7 +651,7 @@ void compute_rhs(){
 			}
 		}
 	}
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(k=3; k<=nz2-2; k++){
 		for(j=1; j<=ny2; j++){
 			for(i=1; i<=nx2; i++){
@@ -666,7 +665,7 @@ void compute_rhs(){
 		}
 	}
 	k=nz2-1;
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(j=1; j<=ny2; j++){
 		for(i=1; i<=nx2; i++){
 			for(m=0; m<5; m++){
@@ -677,7 +676,7 @@ void compute_rhs(){
 		}
 	}
 	k=nz2;
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(j=1; j<=ny2; j++){
 		for(i=1; i<=nx2; i++){
 			for(m=0; m<5; m++){
@@ -687,7 +686,7 @@ void compute_rhs(){
 		}
 	}
 	if(timeron && thread_id==0){timer_stop(T_RHSZ);}
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(k=1; k<=nz2; k++){
 		for(j=1; j<=ny2; j++){
 			for(i=1; i<=nx2; i++){
@@ -1275,7 +1274,7 @@ void ninvr(){
 	int thread_id = omp_get_thread_num();
 
 	if(timeron && thread_id==0){timer_start(T_NINVR);}
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(k=1; k<=nz2; k++){
 		for(j=1; j<=ny2; j++){
 			for(i=1; i<=nx2; i++){
@@ -1308,7 +1307,7 @@ void pinvr(){
 	int thread_id = omp_get_thread_num();
 
 	if(timeron && thread_id==0){timer_start(T_PINVR);}
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(k=1; k<=nz2; k++){
 		for(j=1; j<=ny2; j++){
 			for(i=1; i<=nx2; i++){
@@ -1555,7 +1554,7 @@ void txinvr(){
 	int thread_id = omp_get_thread_num();
 
 	if(timeron && thread_id==0){timer_start(T_TXINVR);}
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(k=1; k<=nz2; k++){
 		for(j=1; j<=ny2; j++){
 			for(i=1; i<=nx2; i++){
@@ -1595,7 +1594,7 @@ void tzetar(){
 	int thread_id = omp_get_thread_num();
 
 	if(timeron && thread_id==0){timer_start(T_TZETAR);}
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(k=1; k<=nz2; k++){
 		for(j=1; j<=ny2; j++){
 			for(i=1; i<=nx2; i++){
@@ -1646,10 +1645,7 @@ void verify(int no_time_steps, char* class_npb, boolean* verified){
 	 * ---------------------------------------------------------------------
 	 */
 	error_norm(xce);
-	#pragma omp parallel
-	{
-		compute_rhs();
-	}
+	compute_rhs();
 	rhs_norm(xcr);
 	for(m=0;m<5;m++){xcr[m]=xcr[m]/dt;}
 	*class_npb='U';
@@ -1941,7 +1937,7 @@ void x_solve(){
 
 	if(timeron && thread_id==0){timer_start(T_XSOLVE);}
 
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(k=1; k<=nz2; k++){
 		double cv[PROBLEM_SIZE], rhon[PROBLEM_SIZE];
 		double lhs[IMAXP+1][IMAXP+1][5];
@@ -2230,7 +2226,7 @@ void y_solve(){
 	int thread_id = omp_get_thread_num();
 
 	if(timeron && thread_id==0){timer_start(T_YSOLVE);}
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(k=1; k<=grid_points[2]-2; k++){
 		double cv[PROBLEM_SIZE], rhoq[PROBLEM_SIZE];
 		double lhs[IMAXP+1][IMAXP+1][5];
@@ -2511,7 +2507,7 @@ void z_solve(){
 	int thread_id = omp_get_thread_num();
 	
 	if(timeron && thread_id==0){timer_start(T_ZSOLVE);}
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	#pragma omp for
 	for(j=1; j<=ny2; j++){
 		double cv[PROBLEM_SIZE], rhos[PROBLEM_SIZE];
 		double lhs[IMAXP+1][IMAXP+1][5];

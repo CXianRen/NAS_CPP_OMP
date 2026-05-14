@@ -276,12 +276,17 @@ printf("USING DYNAMIC SCHEDULER\n");
 
 	setup(&n1,&n2,&n3,k);
 
-	zero3(u,n1,n2,n3);
-
+	#pragma omp parallel
+	{
+		zero3(u,n1,n2,n3);
+	}
 	zran3(v,n1,n2,n3,nx[lt],ny[lt],k);
 	
-	norm2u3(v,n1,n2,n3,&rnm2,&rnmu,nx[lt],ny[lt],nz[lt]);
-
+	#pragma omp parallel
+	{
+		norm2u3(v,n1,n2,n3,&rnm2,&rnmu,nx[lt],ny[lt],nz[lt]);
+	}
+	
 	printf("\n\n NAS Parallel Benchmarks 4.1 Parallel C++ version with OpenMP - MG Benchmark\n\n");
 	printf(" Size: %3dx%3dx%3d (class_npb %1c)\n", nx[lt], ny[lt], nz[lt], class_npb);
 	printf(" Iterations: %3d\n", nit);
@@ -302,9 +307,11 @@ printf("USING DYNAMIC SCHEDULER\n");
 	}
 	
 	setup(&n1,&n2,&n3,k);
-
-	zero3(u,n1,n2,n3);
-
+	
+	#pragma omp parallel
+	{
+		zero3(u,n1,n2,n3);
+	}
 	zran3(v,n1,n2,n3,nx[lt],ny[lt],k);
 
 	timer_stop(T_INIT);

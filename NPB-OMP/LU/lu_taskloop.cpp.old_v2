@@ -56,7 +56,7 @@ Authors of the OpenMP code:
 	Júnior Löff <loffjh@gmail.com>
 	
 */
-
+#include <chrono>
 #include "omp.h"
 #include "../common/npb-CPP.hpp"
 #include "npbparams.hpp"
@@ -226,7 +226,7 @@ static boolean flag2[ISIZ1/2*2+1];
 
 /* lu */
 int main(int argc, char* argv[]){
-printf("USING DYNAMIC SCHEDULER\n");
+printf("USING TASKLOOP SCHEDULER\n");
 #if defined(DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION)
 	printf(" DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION mode on\n");
 #endif
@@ -305,17 +305,17 @@ printf("USING DYNAMIC SCHEDULER\n");
 	 * perform one SSOR iteration to touch all pages
 	 * ---------------------------------------------------------------------
 	 */
-	ssor(1);
-	#pragma omp parallel
-	{
-		/*
-		 * ---------------------------------------------------------------------
-		 * reset the boundary and initial values
-		 * ---------------------------------------------------------------------
-		 */
-		setbv();
-		setiv();
-	}
+	// ssor(1);
+	// #pragma omp parallel
+	// {
+	// 	/*
+	// 	 * ---------------------------------------------------------------------
+	// 	 * reset the boundary and initial values
+	// 	 * ---------------------------------------------------------------------
+	// 	 */
+	// 	setbv();
+	// 	setiv();
+	// }
 
 	/*
 	 * ---------------------------------------------------------------------
@@ -430,7 +430,8 @@ void blts(int nx,
 	double tmp, tmp1;
 	double tmat[5][5], tv[5];
 
-	#pragma omp for nowait //schedule(static)
+	// #pragma omp for nowait schedule(static)
+	#pragma omp taskloop 
 	for(j=jst; j<jend; j++){
 		for(i=ist; i<iend; i++){
 			for(m=0; m<5; m++){
@@ -444,7 +445,8 @@ void blts(int nx,
 		}
 	}
 
-	#pragma omp for nowait //schedule(static)
+	// #pragma omp for nowait schedule(static)
+	#pragma omp taskloop
 	for(j=jst; j<jend; j++){
 		
 	    if (j != jst) {
@@ -619,7 +621,8 @@ void buts(int nx,
 	double tmp, tmp1;
 	double tmat[5][5];
 
-	#pragma omp for nowait //schedule(static)
+	// #pragma omp for nowait schedule(static)
+	#pragma omp taskloop
 	for(j=jend-1; j>=jst; j--){
 		for(i=iend-1; i>=ist; i--){
 			for(m=0; m<5; m++){
@@ -633,7 +636,8 @@ void buts(int nx,
 		}
 	}
 
-	#pragma omp for nowait //schedule(static)
+	// #pragma omp for nowait schedule(static)
+	#pragma omp taskloop
 	for(j=jend-1; j>=jst; j--){
 		
 		
@@ -1304,7 +1308,8 @@ void jacld(int k){
 	c1345=C1*C3*C4*C5;
 	c34=C3*C4;
 
-	#pragma omp for nowait //schedule(static)
+	// #pragma omp for nowait schedule(static)
+	#pragma omp taskloop collapse(2)
 	for(j=jst; j<jend; j++){
 		for(i=ist; i<iend; i++){
 			/*
@@ -1593,7 +1598,8 @@ void jacu(int k){
 	c1345=C1*C3*C4*C5;
 	c34=C3*C4;
 
-	#pragma omp for nowait //schedule(static)
+	// #pragma omp for nowait schedule(static)
+	#pragma omp taskloop
 	for (j=jend-1; j>=jst; j--) {
 		for (i=iend-1; i>=ist; i--) {
 			/*
@@ -1907,35 +1913,55 @@ void l2norm(int nx0,
 	int i, j, k, m;
 	double sum0=0.0, sum1=0.0, sum2=0.0, sum3=0.0, sum4=0.0;
 
-	#pragma omp single  
+	// #pragma omp single  
+	// {
 	for (m = 0; m < 5; m++) {
 		sum[m] = 0.0;
 	}
 
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	// #pragma omp for nowait
+	#pragma omp taskloop collapse(3) shared(sum)
 	for(k=1; k<nz0-1; k++){
 		for(j=jst; j<jend; j++){
 			for(i=ist; i<iend; i++){
-				sum0 = sum0 + v[i][j][k][0] * v[i][j][k][0];
-				sum1 = sum1 + v[i][j][k][1] * v[i][j][k][1];
-				sum2 = sum2 + v[i][j][k][2] * v[i][j][k][2];
-				sum3 = sum3 + v[i][j][k][3] * v[i][j][k][3];
-				sum4 = sum4 + v[i][j][k][4] * v[i][j][k][4];
+				// sum0 = sum0 + v[i][j][k][0] * v[i][j][k][0];
+				// sum1 = sum1 + v[i][j][k][1] * v[i][j][k][1];
+				// sum2 = sum2 + v[i][j][k][2] * v[i][j][k][2];
+				// sum3 = sum3 + v[i][j][k][3] * v[i][j][k][3];
+				// sum4 = sum4 + v[i][j][k][4] * v[i][j][k][4];
+				double local_sum[5] = {0.0, 0.0, 0.0, 0.0, 0.0};
+				local_sum[0] += v[i][j][k][0] * v[i][j][k][0];
+				local_sum[1] += v[i][j][k][1] * v[i][j][k][1];
+				local_sum[2] += v[i][j][k][2] * v[i][j][k][2];
+				local_sum[3] += v[i][j][k][3] * v[i][j][k][3];
+				local_sum[4] += v[i][j][k][4] * v[i][j][k][4];
+				
+				#pragma omp critical
+				{
+					sum[0] += local_sum[0];
+					sum[1] += local_sum[1];
+					sum[2] += local_sum[2];
+					sum[3] += local_sum[3];
+					sum[4] += local_sum[4];
+				}
 			}
 		}
 	}
+	// }
 
-	#pragma omp critical
-	{
-		sum[0] += sum0;
-		sum[1] += sum1;
-		sum[2] += sum2;
-		sum[3] += sum3;
-		sum[4] += sum4;
-	}
-	#pragma omp barrier  
+	// #pragma omp critical
+	// {
+	// 	sum[0] += sum0;
+	// 	sum[1] += sum1;
+	// 	sum[2] += sum2;
+	// 	sum[3] += sum3;
+	// 	sum[4] += sum4;
+	// }
 
-	#pragma omp single  
+	// #pragma omp barrier  
+	#pragma omp taskwait
+
+	// #pragma omp single  
 	for(m=0; m<5; m++){
 		sum[m]=sqrt(sum[m]/((nx0-2)*(ny0-2)*(nz0-2)));
 	}
@@ -2205,11 +2231,9 @@ void rhs(){
 	double u21km1, u31km1, u41km1, u51km1;
 	double flux[ISIZ1][5];
 
-	if(timeron){
-		#pragma omp master
-		timer_start(T_RHS);
-	}
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	if(timeron){timer_start(T_RHS);}
+	// #pragma omp for
+	#pragma omp taskloop
 	for(k=0; k<nz; k++){
 		for(j=0; j<ny; j++){
 			for(i=0; i<nx; i++){
@@ -2225,16 +2249,14 @@ void rhs(){
 			}
 		}
 	}
-	if(timeron){
-		#pragma omp master
-		timer_start(T_RHSX);
-	}
+	if(timeron){timer_start(T_RHSX);}
 	/*
 	 * ---------------------------------------------------------------------
 	 * xi-direction flux differences
 	 * ---------------------------------------------------------------------
 	 */
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	// #pragma omp for
+	#pragma omp taskloop
 	for(k=1; k<nz-1; k++){
 		for(j=jst; j<jend; j++){
 			for(i=0; i<nx; i++){
@@ -2338,20 +2360,15 @@ void rhs(){
 			}
 		}
 	}
-	if(timeron){
-		#pragma omp master
-		timer_stop(T_RHSX);
-	}
-	if(timeron){
-		#pragma omp master
-		timer_start(T_RHSY);
-	}
+	if(timeron){timer_stop(T_RHSX);}
+	if(timeron){timer_start(T_RHSY);}
 	/*
 	 * ---------------------------------------------------------------------
 	 * eta-direction flux differences
 	 * ---------------------------------------------------------------------
 	 */
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	// #pragma omp for
+	#pragma omp taskloop
 	for(k=1; k<nz-1; k++){
 		for(i=ist; i<iend; i++){
 			for(j=0; j<ny; j++){
@@ -2461,20 +2478,15 @@ void rhs(){
 			}
 		}
 	}
-	if(timeron){
-		#pragma omp master
-		timer_stop(T_RHSY);
-	}
-	if(timeron){
-		#pragma omp master
-		timer_start(T_RHSZ);
-	}
+	if(timeron){timer_stop(T_RHSY);}
+	if(timeron){timer_start(T_RHSZ);}
 	/*
 	 * ---------------------------------------------------------------------
 	 * zeta-direction flux differences
 	 * ---------------------------------------------------------------------
 	 */
-	#pragma omp for schedule(nonmonotonic:dynamic)
+	// #pragma omp for
+	#pragma omp taskloop
 	for(j=jst; j<jend; j++){
 		for(i=ist; i<iend; i++){
 			for(k=0; k<nz; k++){
@@ -2586,14 +2598,8 @@ void rhs(){
 			}
 		}
 	}
-	if(timeron){
-		#pragma omp master
-		timer_stop(T_RHSZ);
-	}
-	if(timeron){
-		#pragma omp master
-		timer_stop(T_RHS);
-	}
+	if(timeron){timer_stop(T_RHSZ);}
+	if(timeron){timer_stop(T_RHS);}
 }
 
 /*
@@ -2891,6 +2897,8 @@ void ssor(int niter){
 	
 	#pragma omp parallel
 	{
+		#pragma omp single
+		{
 		/*
 		 * ---------------------------------------------------------------------
 		 * compute the steady-state residuals
@@ -2912,14 +2920,17 @@ void ssor(int niter){
 				jend,
 				rsd,
 				rsdnm);
+		}
 	} /* end parallel */
 
 
 	for(i=1;i<=T_LAST;i++){timer_clear(i);}
 	timer_start(1);
-	
+	auto start = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count(); // Add by Jing
 	#pragma omp parallel private(istep,i,j,k,m)
 	{
+		#pragma omp single
+		{
 		/*
 		 * ---------------------------------------------------------------------
 		 * the timestep loop
@@ -2927,7 +2938,7 @@ void ssor(int niter){
 		 */
 		for(istep=1; istep<=niter; istep++){
 			if((istep%20)==0||istep==itmax||istep==1){
-				#pragma omp master
+				// #pragma omp master
 					if(niter>1){printf(" Time step %4d\n",istep);}
 			}
 			/*
@@ -2935,11 +2946,12 @@ void ssor(int niter){
 			 * perform SSOR iteration
 			 * ---------------------------------------------------------------------
 			 */
-			if(timeron){
-				#pragma omp master
-					timer_start(T_RHS);
-			}
-			#pragma omp for schedule(nonmonotonic:dynamic)
+			// if(timeron){
+			// 	#pragma omp master
+			// 		timer_start(T_RHS);
+			// }
+			// #pragma omp for
+			#pragma omp taskloop
 			for(k=1; k<nz-1; k++){
 				for(j=jst; j<jend; j++){
 					for(i=ist; i<iend; i++){
@@ -2949,10 +2961,10 @@ void ssor(int niter){
 					}
 				}
 			}
-			if(timeron){
-				#pragma omp master
-					timer_stop(T_RHS);
-			}
+			// if(timeron){
+			// 	#pragma omp master
+			// 		timer_stop(T_RHS);
+			// }
 
 			for(k=1; k<nz-1; k++){
 				/*
@@ -2960,25 +2972,25 @@ void ssor(int niter){
 				 * form the lower triangular part of the jacobian matrix
 				 * ---------------------------------------------------------------------
 				 */
-				if(timeron){
-					#pragma omp master
-						timer_start(T_JACLD);
-				}
+				// if(timeron){
+				// 	#pragma omp master
+				// 		timer_start(T_JACLD);
+				// }
 				jacld(k);
-				if(timeron){
-					#pragma omp master
-						timer_stop(T_JACLD);
-				}
+				// if(timeron){
+				// 	#pragma omp master
+				// 		timer_stop(T_JACLD);
+				// }
 
 				/*
 				 * ---------------------------------------------------------------------
 				 * perform the lower triangular solution
 				 * ---------------------------------------------------------------------
 				 */
-				if(timeron){
-					#pragma omp master
-						timer_start(T_BLTS);
-				}
+				// if(timeron){
+				// 	#pragma omp master
+				// 		timer_start(T_BLTS);
+				// }
 				
 				blts(	nx,
 						ny,
@@ -2997,13 +3009,14 @@ void ssor(int niter){
 						nx0,
 						ny0);
 
-				if(timeron){
-					#pragma omp master
-						timer_stop(T_BLTS);
-				}
+				// if(timeron){
+				// 	#pragma omp master
+				// 		timer_stop(T_BLTS);
+				// }
 			}
 
-			#pragma omp barrier
+			// #pragma omp barrier
+			#pragma omp taskwait
 
 			for(k=nz-2; k>0; k--){
 				/*
@@ -3011,24 +3024,24 @@ void ssor(int niter){
 				 * form the strictly upper triangular part of the jacobian matrix
 				 * ---------------------------------------------------------------------
 				 */
-				if(timeron){
-					#pragma omp master
-						timer_start(T_JACU);
-				}
+				// if(timeron){
+				// 	#pragma omp master
+				// 		timer_start(T_JACU);
+				// }
 				jacu(k);
-				if(timeron){
-					#pragma omp master
-						timer_stop(T_JACU);
-				}
+				// if(timeron){
+				// 	#pragma omp master
+				// 		timer_stop(T_JACU);
+				// }
 				/*
 				 * ---------------------------------------------------------------------
 				 * perform the upper triangular solution
 				 * ---------------------------------------------------------------------
 				 */
-				if(timeron){
-					#pragma omp master
-						timer_start(T_BUTS);
-				}
+				// if(timeron){
+				// 	#pragma omp master
+				// 		timer_start(T_BUTS);
+				// }
 
 				buts(	nx,
 						ny,
@@ -3048,25 +3061,27 @@ void ssor(int niter){
 						nx0,
 						ny0);
 
-				if(timeron){
-					#pragma omp master
-						timer_stop(T_BUTS);
-				}
+				// if(timeron){
+				// 	#pragma omp master
+				// 		timer_stop(T_BUTS);
+				// }
 			}
 			
-			#pragma omp barrier
+			// #pragma omp barrier
+			#pragma omp taskwait
 
 			/*
 			 * ---------------------------------------------------------------------
 			 * update the variables
 			 * ---------------------------------------------------------------------
 			 */
-			if(timeron){
-				#pragma omp master
-					timer_start(T_ADD);
-			}
+			// if(timeron){
+			// 	#pragma omp master
+			// 		timer_start(T_ADD);
+			// }
 
-			#pragma omp for schedule(nonmonotonic:dynamic)
+			// #pragma omp for
+			#pragma omp taskloop
 			for(k=1; k<nz-1; k++){
 				for(j=jst; j<jend; j++){
 					for(i=ist; i<iend; i++){
@@ -3076,10 +3091,10 @@ void ssor(int niter){
 					}
 				}
 			}
-			if(timeron){
-				#pragma omp master
-					timer_stop(T_ADD);
-			}
+			// if(timeron){
+			// 	#pragma omp master
+			// 		timer_stop(T_ADD);
+			// }
 			/*
 			 * ---------------------------------------------------------------------
 			 * compute the max-norms of newton iteration corrections
@@ -3087,10 +3102,10 @@ void ssor(int niter){
 			 */
 
 			if((istep%inorm)==0){
-				if(timeron){
-					#pragma omp master
-						timer_start(T_L2NORM);
-				}
+				// if(timeron){
+				// 	#pragma omp master
+				// 		timer_start(T_L2NORM);
+				// }
 				l2norm(	nx0,
 						ny0,
 						nz0,
@@ -3100,10 +3115,10 @@ void ssor(int niter){
 						jend,
 						rsd,
 						delunm);
-				if(timeron){
-					#pragma omp master
-						timer_stop(T_L2NORM);
-				}
+				// if(timeron){
+				// 	#pragma omp master
+				// 		timer_stop(T_L2NORM);
+				// }
 			}
 			/*
 			 * ---------------------------------------------------------------------
@@ -3118,10 +3133,10 @@ void ssor(int niter){
 			 * ---------------------------------------------------------------------
 			 */
 			if(((istep%inorm)==0)||( istep == itmax)){
-				if(timeron){
-					#pragma omp master
-						timer_start(T_L2NORM);
-				}
+				// if(timeron){
+				// 	#pragma omp master
+				// 		timer_start(T_L2NORM);
+				// }
 				l2norm(	nx0,
 						ny0,
 						nz0,
@@ -3131,10 +3146,10 @@ void ssor(int niter){
 						jend,
 						rsd,
 						rsdnm);
-				if(timeron){
-					#pragma omp master
-						timer_stop(T_L2NORM);
-				}
+				// if(timeron){
+				// 	#pragma omp master
+				// 		timer_stop(T_L2NORM);
+				// }
 			}
 			/*
 			 * ---------------------------------------------------------------------
@@ -3146,15 +3161,17 @@ void ssor(int niter){
 					(rsdnm[2]<tolrsd[2])&&
 					(rsdnm[3]<tolrsd[3])&&
 					(rsdnm[4]<tolrsd[4])){
-				#pragma omp master
+				// #pragma omp master
 					printf(" \n convergence was achieved after %4d pseudo-time steps\n",istep);
 				break;
 			}
 		}
+		}
 	} /* end parallel */
-
+	auto end = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count(); // Add by Jing
 	timer_stop(1);
 	maxtime=timer_read(1);
+	printf("%ld\t%ld\t%.3f\n", start, end, (end - start) / 1000.0);
 }
 
 /*
