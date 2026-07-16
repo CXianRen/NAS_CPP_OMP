@@ -159,10 +159,6 @@ static double amult;
 static double tran;
 static boolean timeron;
 
-static double region_total_time = 0.0;
-static int region_call_count = 0;
-static double shared_region_start = 0.0;
-
 /* function prototypes */
 static void conj_grad(int colidx[],
 		int rowstr[],
@@ -485,9 +481,6 @@ int main(int argc, char **argv){
 		#pragma omp single
 		{
 			hams_enable_moldability();
-			region_total_time = 0.0;
-            region_call_count = 0;
-            shared_region_start = 0.0;
 		}
 
 		/*
@@ -635,14 +628,6 @@ int main(int argc, char **argv){
 		}
 	}
 
-    printf("\n================= Region Execution Stats ================\n");
-    printf(" Total Execution Count : %d times\n", region_call_count);
-    printf(" Total Execution Time  : %15.6f seconds\n", region_total_time);
-    if (region_call_count > 0) {
-        printf(" Average Execution Time: %15.6e seconds\n", region_total_time / region_call_count);
-    }
-    printf("=========================================================\n\n");
-
 	return 0;
 }
 
@@ -721,14 +706,6 @@ static void conj_grad(int colidx[],
 			rho = 0.0;
 		}
 
-		// @Hal: measure the time spent in this region
-
-		// #pragma omp master
-		#pragma omp single nowait
-        {
-            shared_region_start = omp_get_wtime();
-        }
-
 		#pragma omp for nowait
 		for(j = 0; j < lastrow - firstrow + 1; j++){
 			suml = 0.0;
@@ -749,13 +726,6 @@ static void conj_grad(int colidx[],
 			d += p[j]*q[j];
 		}
 
-		// @Hal: measure the time spent in this region
-        #pragma omp master
-        {
-            double t_end = omp_get_wtime();
-            region_total_time += (t_end - shared_region_start);
-            region_call_count++;
-        }
 		/*
 		 * --------------------------------------------------------------------
 		 * obtain alpha = rho / (p.q)

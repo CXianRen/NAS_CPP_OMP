@@ -59,11 +59,6 @@ Authors of the OpenMP code:
 #include "../common/npb-CPP.hpp"
 #include "npbparams.hpp"
 
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <cstring>
-#include <cstdlib>
-
 #include <dlfcn.h>
 
 typedef void (*omp_api_t)(void);
@@ -158,10 +153,6 @@ static int lastcol;
 static double amult;
 static double tran;
 static boolean timeron;
-
-static double region_total_time = 0.0;
-static int region_call_count = 0;
-static double shared_region_start = 0.0;
 
 /* function prototypes */
 static void conj_grad(int colidx[],
@@ -277,20 +268,9 @@ int main(int argc, char **argv){
 		class_npb = 'U';
 	}
 
-    // 动态检测 NITER 环境变量输入
-    int num_iterations = NITER; 
-    char* env_niter = std::getenv("NPB_CG_NITER");
-    if (env_niter && strlen(env_niter) > 0) {
-        int parsed_niter = std::atoi(env_niter);
-        if (parsed_niter > 0) {
-            num_iterations = parsed_niter;
-        }
-    }
-
-
 	printf("\n\n NAS Parallel Benchmarks 4.1 Parallel C++ version with OpenMP - CG Benchmark\n\n");
 	printf(" Size: %11d\n", NA);
-	printf(" Iterations: %5d (default: %d)\n", num_iterations, NITER);
+	printf(" Iterations: %5d\n", NITER);
 
 	naa = NA;
 	nzz = NZ;
@@ -300,93 +280,19 @@ int main(int argc, char **argv){
 	amult   = 1220703125.0;
 	zeta    = randlc( &tran, amult );
 
-    // ------ 自动检测并载入/持久化矩阵缓存 (Linux) ------
-    bool cache_loaded = false;
-    char* cache_dir = std::getenv("NPB_CG_CACHE_DIR");
-    char cache_path_a[512] = {0};
-    char cache_path_col[512] = {0};
-    char cache_path_row[512] = {0};
-
-    if (cache_dir && strlen(cache_dir) > 0) {
-        snprintf(cache_path_a, sizeof(cache_path_a), "%s/cg_matrix_a_%c.bin", cache_dir, class_npb);
-        snprintf(cache_path_col, sizeof(cache_path_col), "%s/cg_matrix_col_%c.bin", cache_dir, class_npb);
-        snprintf(cache_path_row, sizeof(cache_path_row), "%s/cg_matrix_row_%c.bin", cache_dir, class_npb);
-
-        FILE* f_row = fopen(cache_path_row, "rb");
-        if (f_row) {
-            // 加载 rowstr 格式数据
-            size_t read_row = fread(rowstr, sizeof(int), NA + 1, f_row);
-            fclose(f_row);
-
-            if (read_row == (size_t)(NA + 1)) {
-                int actual_nz = rowstr[NA];
-                FILE* f_a   = fopen(cache_path_a, "rb");
-                FILE* f_col = fopen(cache_path_col, "rb");
-
-                if (f_a && f_col) {
-                    size_t read_a   = fread(a, sizeof(double), actual_nz, f_a);
-                    size_t read_col = fread(colidx, sizeof(int), actual_nz, f_col);
-
-                    fclose(f_a);
-                    fclose(f_col);
-
-                    if (read_a == (size_t)actual_nz && read_col == (size_t)actual_nz) {
-                        printf(" [CACHE] 成功从 '%s' 加载 Class %c 矩阵！非零元数: %d\n", 
-                               cache_dir, class_npb, actual_nz);
-                        cache_loaded = true;
-                    }
-                } else {
-                    if (f_a) fclose(f_a);
-                    if (f_col) fclose(f_col);
-                }
-            }
-        }
-    }
-
-    if (!cache_loaded) {
-        printf(" [CACHE] 未找到有效缓存，开始进行原生 makea 初始化...\n");
-        
-        makea(naa, 
-                nzz, 
-                a, 
-                colidx, 
-                rowstr, 
-                firstrow, 
-                lastrow, 
-                firstcol, 
-                lastcol, 
-                arow, 
-                (int(*)[NONZER+1])(void*)acol, 
-                (double(*)[NONZER+1])(void*)aelt,
-                iv);
-
-        if (cache_dir && strlen(cache_dir) > 0) {
-            struct stat st = {0};
-            if (stat(cache_dir, &st) == -1) {
-                printf(" [CACHE] 创建缓存目录: '%s'\n", cache_dir);
-                mkdir(cache_dir, 0755);
-            }
-
-            FILE* f_row = fopen(cache_path_row, "wb");
-            FILE* f_a   = fopen(cache_path_a, "wb");
-            FILE* f_col = fopen(cache_path_col, "wb");
-
-            if (f_row && f_a && f_col) {
-                int actual_nz = rowstr[NA];
-                fwrite(rowstr, sizeof(int), NA + 1, f_row);
-                fwrite(a, sizeof(double), actual_nz, f_a);
-                fwrite(colidx, sizeof(int), actual_nz, f_col);
-                printf(" [CACHE] 成功将矩阵缓存导出至: '%s'\n", cache_dir);
-            } else {
-                printf(" [警告] 导出缓存失败，请检查写入权限。\n");
-            }
-
-            if (f_row) fclose(f_row);
-            if (f_a) fclose(f_a);
-            if (f_col) fclose(f_col);
-        }
-    }
-    // -------------------------------------------------------------
+	makea(naa, 
+			nzz, 
+			a, 
+			colidx, 
+			rowstr, 
+			firstrow, 
+			lastrow, 
+			firstcol, 
+			lastcol, 
+			arow, 
+			(int(*)[NONZER+1])(void*)acol, 
+			(double(*)[NONZER+1])(void*)aelt,
+			iv);
 
 	/*
 	 * ---------------------------------------------------------------------
@@ -485,9 +391,6 @@ int main(int argc, char **argv){
 		#pragma omp single
 		{
 			hams_enable_moldability();
-			region_total_time = 0.0;
-            region_call_count = 0;
-            shared_region_start = 0.0;
 		}
 
 		/*
@@ -497,7 +400,7 @@ int main(int argc, char **argv){
 		 * ---->
 		 * --------------------------------------------------------------------
 		 */
-		for(it = 1; it <= num_iterations; it++){
+		for(it = 1; it <= NITER; it++){
 			
 			/* the call to the conjugate gradient routine */
 			#pragma omp master
@@ -580,7 +483,7 @@ int main(int argc, char **argv){
 		printf(" NO VERIFICATION PERFORMED\n");
 	}
 	if(t != 0.0){
-		mflops = (double)(2.0*num_iterations*NA)
+		mflops = (double)(2.0*NITER*NA)
 			* (3.0+(double)(NONZER*(NONZER+1))
 					+ 25.0
 					* (5.0+(double)(NONZER*(NONZER+1)))+3.0)
@@ -594,7 +497,7 @@ int main(int argc, char **argv){
 			NA,
 			0,
 			0,
-			num_iterations,
+			NITER,
 			t,
 			mflops,
 			(char*)"          floating point",
@@ -634,14 +537,6 @@ int main(int argc, char **argv){
 			}
 		}
 	}
-
-    printf("\n================= Region Execution Stats ================\n");
-    printf(" Total Execution Count : %d times\n", region_call_count);
-    printf(" Total Execution Time  : %15.6f seconds\n", region_total_time);
-    if (region_call_count > 0) {
-        printf(" Average Execution Time: %15.6e seconds\n", region_total_time / region_call_count);
-    }
-    printf("=========================================================\n\n");
 
 	return 0;
 }
@@ -721,14 +616,6 @@ static void conj_grad(int colidx[],
 			rho = 0.0;
 		}
 
-		// @Hal: measure the time spent in this region
-
-		// #pragma omp master
-		#pragma omp single nowait
-        {
-            shared_region_start = omp_get_wtime();
-        }
-
 		#pragma omp for nowait
 		for(j = 0; j < lastrow - firstrow + 1; j++){
 			suml = 0.0;
@@ -749,13 +636,6 @@ static void conj_grad(int colidx[],
 			d += p[j]*q[j];
 		}
 
-		// @Hal: measure the time spent in this region
-        #pragma omp master
-        {
-            double t_end = omp_get_wtime();
-            region_total_time += (t_end - shared_region_start);
-            region_call_count++;
-        }
 		/*
 		 * --------------------------------------------------------------------
 		 * obtain alpha = rho / (p.q)
