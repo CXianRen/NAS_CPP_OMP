@@ -128,3 +128,39 @@ inline const char* sched_name(omp_sched_t kind) {
         default: return "unknown";
     }
 }
+
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <cstring>
+#include <cstdlib>
+#include <dlfcn.h>
+
+typedef void (*omp_api_t)(void);
+
+inline void hams_enable_moldability() {
+ omp_api_t fn =
+    (omp_api_t)dlsym(
+        RTLD_DEFAULT,
+        "omp_hams_enable_moldability");
+
+    if (fn) {
+        printf("HAMS API found\n");
+        fn();
+    } else {
+        printf("runtime does not support HAMS API\n");
+    }
+}
+
+inline void hams_disable_moldability() {
+ omp_api_t fn =
+    (omp_api_t)dlsym(
+        RTLD_DEFAULT,
+        "omp_hams_disable_moldability");
+
+    if (fn) {
+        printf("API found\n");
+        fn();
+    } else {
+        printf("runtime does not support API\n");
+    }
+}

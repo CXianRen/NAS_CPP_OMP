@@ -167,27 +167,6 @@ void x_solve();
 void y_solve();
 void z_solve();
 
-// Loop3 measurement variables
-static int Loop3_count = 0;
-static double Loop3_total_time = 0.0;
-static double Loop3_timer=0.0;
-
-// Loop4 measurement variables
-static int Loop4_count = 0;
-static double Loop4_total_time = 0.0;
-static double Loop4_timer=0.0;
-
-// Loop5 measurement variables
-static int Loop5_count = 0;
-static double Loop5_total_time = 0.0;
-static double Loop5_timer=0.0;
-
-// Loop8 measurement variables
-static int Loop8_count = 0;
-static double Loop8_total_time = 0.0;
-static double Loop8_timer=0.0;
-
-
 /* sp */
 int main(int argc, char* argv[]){
 #if defined(DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION)
@@ -243,31 +222,9 @@ int main(int argc, char* argv[]){
 	}else{
 		timeron = FALSE;
 	}	
-
-    // 动态检测 niter 环境变量输入
-    char* env_niter = std::getenv("NPB_NITER");
-    if (env_niter && strlen(env_niter) > 0) {
-        int parsed_niter = std::atoi(env_niter);
-        if (parsed_niter > 0) {
-            niter = parsed_niter;
-        }
-    }
-
-    // check timer on via environment variable
-    char* env_timeron = std::getenv("NPB_TIMERON");
-    if (env_timeron && strlen(env_timeron) > 0) {
-        int parsed_timeron = std::atoi(env_timeron);
-        if (parsed_timeron == 1) {
-            timeron = TRUE;
-        } else if (parsed_timeron == 0) {
-            timeron = FALSE;
-        }
-    }
-
 	printf("\n\n NAS Parallel Benchmarks 4.1 Parallel C++ version with OpenMP - SP Benchmark\n\n");
 	printf(" Size: %4dx%4dx%4d\n",grid_points[0],grid_points[1],grid_points[2]);
 	printf(" Iterations: %4d    dt: %10.6f\n",niter,dt);
-    printf(" Timeron: %s\n", timeron ? "TRUE" : "FALSE");
 	printf("\n");
 	if((grid_points[0]>IMAX)||(grid_points[1]>JMAX)||(grid_points[2]>KMAX)){
 		printf(" %d, %d, %d\n",grid_points[0],grid_points[1],grid_points[2]);
@@ -286,92 +243,25 @@ int main(int argc, char* argv[]){
 	 * do one time step to touch all code, and reinitialize
 	 * ---------------------------------------------------------------------
 	 */
-	double init_start = omp_get_wtime();
 	#pragma omp parallel
   	{
 		adi();
 	}
 	initialize();
 	for(i=1;i<=T_LAST;i++){timer_clear(i);}
-	double init_end = omp_get_wtime();
-	double init_time = init_end - init_start;
-	printf(" Initialization time: %f seconds\n", init_time);
-
-	// reinitialize timers
-	Loop3_count = 0;
-	Loop3_total_time = 0.0;
-	Loop3_timer=0.0;
-
-	Loop4_count = 0;
-	Loop4_total_time = 0.0;
-	Loop4_timer=0.0;
-
-	Loop5_count = 0;
-	Loop5_total_time = 0.0;
-	Loop5_timer=0.0;
-
-	Loop8_count = 0;
-	Loop8_total_time = 0.0;
-	Loop8_timer=0.0;
-
 	timer_start(1);
-    hams_enable_moldability();
 	#pragma omp parallel firstprivate(niter) private(step)
   	{
 		for(step=1;step<=niter;step++){
-			if(niter <= 10 || (step%20)==0||step==1){
+			if((step%20)==0||step==1){
 				#pragma omp master
 					printf(" Time step %4d\n",step);
 			}
 			adi();
 		}
 	}
-    hams_disable_moldability();
 	timer_stop(1);
 	tmax=timer_read(1);
-
-	// @Hal: print the our timer measurements
-	printf("\n================= Loop Execution Stats ================\n");
-	printf("  Loop3 executed %d times, total time: %f seconds, average time: %f seconds\n", 
-			Loop3_count, Loop3_total_time, Loop3_total_time / Loop3_count);	
-	printf("  Loop4 executed %d times, total time: %f seconds, average time: %f seconds\n", 
-			Loop4_count, Loop4_total_time, Loop4_total_time / Loop4_count);
-	printf("  Loop5 executed %d times, total time: %f seconds, average time: %f seconds\n", 
-			Loop5_count, Loop5_total_time, Loop5_total_time / Loop5_count);
-	printf("  Loop8 executed %d times, total time: %f seconds, average time: %f seconds\n", 
-			Loop8_count, Loop8_total_time, Loop8_total_time / Loop8_count);
-	printf("=========================================================\n\n");
-
-
-	/*
-	 * ---------------------------------------------------------------------
-	 * more timers
-	 * ---------------------------------------------------------------------
-	 */
-	if(timeron){
-		for(i=1; i<=T_LAST; i++){
-			trecs[i]=timer_read(i);
-		}
-		if(tmax==0.0){tmax=1.0;}
-		printf("  SECTION   Time (secs)\n");
-		for(i=1; i<=T_LAST; i++){
-			printf("  %-8s:%9.3f  (%6.2f%%)\n",t_names[i],trecs[i],trecs[i]*100./tmax);
-			if(i==T_RHS){
-				t=trecs[T_RHSX]+trecs[T_RHSY]+trecs[T_RHSZ];
-				printf("    --> %8s:%9.3f  (%6.2f%%)\n","sub-rhs",t,t*100./tmax);
-				t=trecs[T_RHS]-t;
-				printf("    --> %8s:%9.3f  (%6.2f%%)\n","rest-rhs",t,t*100./tmax);
-			}else if(i==T_ZSOLVE){
-				t=trecs[T_ZSOLVE]-trecs[T_RDIS1]-trecs[T_RDIS2];
-				printf("    --> %8s:%9.3f  (%6.2f%%)\n","sub-zsol",t,t*100./tmax);
-			}else if(i==T_RDIS2){
-				t=trecs[T_RDIS1]+trecs[T_RDIS2];
-				printf("    --> %8s:%9.3f  (%6.2f%%)\n","redist",t,t*100./tmax);
-			}
-		}
-	}
-
-	
 	verify(niter, &class_npb, &verified);
 	if(tmax!=0.0){
 		n3=grid_points[0]*grid_points[1]*grid_points[2];
@@ -406,7 +296,33 @@ int main(int argc, char* argv[]){
 			(char*)CS5,
 			(char*)CS6,
 			(char*)"(none)");
-
+	/*
+	 * ---------------------------------------------------------------------
+	 * more timers
+	 * ---------------------------------------------------------------------
+	 */
+	if(timeron){
+		for(i=1; i<=T_LAST; i++){
+			trecs[i]=timer_read(i);
+		}
+		if(tmax==0.0){tmax=1.0;}
+		printf("  SECTION   Time (secs)\n");
+		for(i=1; i<=T_LAST; i++){
+			printf("  %-8s:%9.3f  (%6.2f%%)\n",t_names[i],trecs[i],trecs[i]*100./tmax);
+			if(i==T_RHS){
+				t=trecs[T_RHSX]+trecs[T_RHSY]+trecs[T_RHSZ];
+				printf("    --> %8s:%9.3f  (%6.2f%%)\n","sub-rhs",t,t*100./tmax);
+				t=trecs[T_RHS]-t;
+				printf("    --> %8s:%9.3f  (%6.2f%%)\n","rest-rhs",t,t*100./tmax);
+			}else if(i==T_ZSOLVE){
+				t=trecs[T_ZSOLVE]-trecs[T_RDIS1]-trecs[T_RDIS2];
+				printf("    --> %8s:%9.3f  (%6.2f%%)\n","sub-zsol",t,t*100./tmax);
+			}else if(i==T_RDIS2){
+				t=trecs[T_RDIS1]+trecs[T_RDIS2];
+				printf("    --> %8s:%9.3f  (%6.2f%%)\n","redist",t,t*100./tmax);
+			}
+		}
+	}
 	return 0;
 }
 
@@ -501,14 +417,6 @@ void compute_rhs(){
 	 * ---------------------------------------------------------------------
 	 */
 	if(timeron && thread_id==0){timer_start(T_RHSX);}
-
-	// @Hal: measure the time spent in this region
-	#pragma omp master
-	{
-		Loop3_count++;
-		Loop3_timer = omp_get_wtime();
-	}
-
 	#pragma omp for  // L3
 	for(k=1; k<=nz2; k++){
 		for(j=1; j<=ny2; j++){
@@ -586,13 +494,6 @@ void compute_rhs(){
 			}
 		}
 	}
-
-	#pragma omp master
-	{
-		Loop3_timer = omp_get_wtime() - Loop3_timer;
-		Loop3_total_time += Loop3_timer;
-	}
-
 	if(timeron && thread_id==0){timer_stop(T_RHSX);}
 	/*
 	 * ---------------------------------------------------------------------
@@ -600,13 +501,6 @@ void compute_rhs(){
 	 * ---------------------------------------------------------------------
 	 */
 	if(timeron && thread_id==0){timer_start(T_RHSY);}
-
-	#pragma omp master
-	{
-		Loop4_count++;
-		Loop4_timer = omp_get_wtime();
-	}
-
 	#pragma omp for  // L4
 	for(k=1; k<=nz2; k++){
 		for(j=1; j<=ny2; j++){
@@ -688,13 +582,6 @@ void compute_rhs(){
 			}
 		}
 	}
-
-	#pragma omp master
-	{
-		Loop4_timer = omp_get_wtime() - Loop4_timer;
-		Loop4_total_time += Loop4_timer;
-	}
-
 	if(timeron && thread_id==0){timer_stop(T_RHSY);}
 	/*
 	 * ---------------------------------------------------------------------
@@ -702,14 +589,6 @@ void compute_rhs(){
 	 * ---------------------------------------------------------------------
 	 */
 	if(timeron && thread_id==0){timer_start(T_RHSZ);}
-
-
-	#pragma omp master
-	{
-		Loop5_count++;
-		Loop5_timer = omp_get_wtime();
-	}
-
 	#pragma omp for  // L5
 	for(k=1; k<=nz2; k++){
 		for(j=1; j<=ny2; j++){
@@ -746,20 +625,13 @@ void compute_rhs(){
 			}
 		}
 	}
-
-	#pragma omp master
-	{
-		Loop5_timer = omp_get_wtime() - Loop5_timer;
-		Loop5_total_time += Loop5_timer;
-	}
-
 	/*
 	 * ---------------------------------------------------------------------
 	 * add fourth order zeta-direction dissipation                
 	 * ---------------------------------------------------------------------
 	 */
 	k=1;
-	#pragma omp for   // L6
+	#pragma omp for
 	for(j=1; j<=ny2; j++){
 		for(i=1; i<=nx2; i++){
 			for(m=0; m<5; m++){
@@ -769,7 +641,7 @@ void compute_rhs(){
 		}
 	}
 	k=2;
-	#pragma omp for   // L7
+	#pragma omp for
 	for(j=1; j<=ny2; j++){
 		for(i=1; i<=nx2; i++){
 			for(m=0; m<5; m++){
@@ -779,13 +651,6 @@ void compute_rhs(){
 			}
 		}
 	}
-
-	#pragma omp master
-	{
-		Loop8_count++;
-		Loop8_timer = omp_get_wtime();
-	}
-
 	#pragma omp for   // L8
 	for(k=3; k<=nz2-2; k++){
 		for(j=1; j<=ny2; j++){
@@ -799,15 +664,8 @@ void compute_rhs(){
 			}
 		}
 	}
-
-	#pragma omp master
-	{
-		Loop8_timer = omp_get_wtime() - Loop8_timer;
-		Loop8_total_time += Loop8_timer;
-	}
-
 	k=nz2-1;
-	#pragma omp for   // L9
+	#pragma omp for
 	for(j=1; j<=ny2; j++){
 		for(i=1; i<=nx2; i++){
 			for(m=0; m<5; m++){
@@ -818,7 +676,7 @@ void compute_rhs(){
 		}
 	}
 	k=nz2;
-	#pragma omp for   // L10
+	#pragma omp for
 	for(j=1; j<=ny2; j++){
 		for(i=1; i<=nx2; i++){
 			for(m=0; m<5; m++){
@@ -828,7 +686,7 @@ void compute_rhs(){
 		}
 	}
 	if(timeron && thread_id==0){timer_stop(T_RHSZ);}
-	#pragma omp for   // L11
+	#pragma omp for
 	for(k=1; k<=nz2; k++){
 		for(j=1; j<=ny2; j++){
 			for(i=1; i<=nx2; i++){

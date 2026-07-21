@@ -64,37 +64,37 @@ Authors of the OpenMP code:
 #include <cstring>
 #include <cstdlib>
 
-#include <dlfcn.h>
+// #include <dlfcn.h>
 
-typedef void (*omp_api_t)(void);
+// typedef void (*omp_api_t)(void);
 
-void hams_enable_moldability() {
- omp_api_t fn =
-    (omp_api_t)dlsym(
-        RTLD_DEFAULT,
-        "omp_hams_enable_moldability");
+// void hams_enable_moldability() {
+//  omp_api_t fn =
+//     (omp_api_t)dlsym(
+//         RTLD_DEFAULT,
+//         "omp_hams_enable_moldability");
 
-    if (fn) {
-        printf("HAMS API found\n");
-        fn();
-    } else {
-        printf("runtime does not support HAMS API\n");
-    }
-}
+//     if (fn) {
+//         printf("HAMS API found\n");
+//         fn();
+//     } else {
+//         printf("runtime does not support HAMS API\n");
+//     }
+// }
 
-void hams_disable_moldability() {
- omp_api_t fn =
-    (omp_api_t)dlsym(
-        RTLD_DEFAULT,
-        "omp_hams_disable_moldability");
+// void hams_disable_moldability() {
+//  omp_api_t fn =
+//     (omp_api_t)dlsym(
+//         RTLD_DEFAULT,
+//         "omp_hams_disable_moldability");
 
-    if (fn) {
-        printf("API found\n");
-        fn();
-    } else {
-        printf("runtime does not support API\n");
-    }
-}
+//     if (fn) {
+//         printf("API found\n");
+//         fn();
+//     } else {
+//         printf("runtime does not support API\n");
+//     }
+// }
 
 
 /*
@@ -279,7 +279,7 @@ int main(int argc, char **argv){
 
     // 动态检测 NITER 环境变量输入
     int num_iterations = NITER; 
-    char* env_niter = std::getenv("NPB_CG_NITER");
+    char* env_niter = std::getenv("NPB_NITER");
     if (env_niter && strlen(env_niter) > 0) {
         int parsed_niter = std::atoi(env_niter);
         if (parsed_niter > 0) {
