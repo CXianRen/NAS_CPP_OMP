@@ -61,11 +61,6 @@ Authors of the OpenMP code:
 #include "../common/npb-CPP.hpp"
 #include "npbparams.hpp"
 
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <cstring>
-#include <cstdlib>
-
 #define NM (2+(1<<LM)) /* actual dimension including ghost cells for communications */
 #define NV (ONE*(2+(1<<NDIM1))*(2+(1<<NDIM2))*(2+(1<<NDIM3))) /* size of rhs array */
 #define NR (((NV+NM*NM+5*NM+7*LM+6)/7)*8) /* size of residual array */
@@ -129,7 +124,7 @@ static void rprj3(void* pointer_r, int m1k, int m2k, int m3k, void* pointer_s, i
 static void setup(int* n1, int* n2, int* n3, int k);
 static void showall(void* pointer_z, int n1, int n2, int n3);
 static void zero3(void* pointer_z, int n1, int n2, int n3);
-static void zran3(void* pointer_z, int n1, int n2, int n3, int nx, int ny, int k, char class_npb);
+static void zran3(void* pointer_z, int n1, int n2, int n3, int nx, int ny, int k);
 
 /* mg */
 int main(int argc, char *argv[]){
@@ -282,31 +277,9 @@ int main(int argc, char *argv[]){
 
 	zero3(u,n1,n2,n3);
 
-	zran3(v,n1,n2,n3,nx[lt],ny[lt],k,class_npb);
+	zran3(v,n1,n2,n3,nx[lt],ny[lt],k);
 	
 	norm2u3(v,n1,n2,n3,&rnm2,&rnmu,nx[lt],ny[lt],nz[lt]);
-
-
-    char* env_niter = std::getenv("NPB_NITER");
-    if (env_niter && strlen(env_niter) > 0) {
-        int parsed_niter = std::atoi(env_niter);
-        if (parsed_niter > 0) {
-            // niter = parsed_niter;
-            nit = parsed_niter;
-        }
-    }
-
-    // check timer on via environment variable
-    char* env_timeron = std::getenv("NPB_TIMERON");
-    if (env_timeron && strlen(env_timeron) > 0) {
-        int parsed_timeron = std::atoi(env_timeron);
-        if (parsed_timeron == 1) {
-            timeron = TRUE;
-        } else if (parsed_timeron == 0) {
-            timeron = FALSE;
-        }
-    }
-
 
 	printf("\n\n NAS Parallel Benchmarks 4.1 Parallel C++ version with OpenMP - MG Benchmark\n\n");
 	printf(" Size: %3dx%3dx%3d (class_npb %1c)\n", nx[lt], ny[lt], nz[lt], class_npb);
@@ -331,7 +304,7 @@ int main(int argc, char *argv[]){
 
 	zero3(u,n1,n2,n3);
 
-	zran3(v,n1,n2,n3,nx[lt],ny[lt],k,class_npb);
+	zran3(v,n1,n2,n3,nx[lt],ny[lt],k);
 
 	timer_stop(T_INIT);
 	tinit = timer_read(T_INIT);
@@ -1281,7 +1254,7 @@ static void zero3(void* pointer_z, int n1, int n2, int n3){
  * and zero elsewhere.
  * ---------------------------------------------------------------------
  */
-static void zran3(void* pointer_z, int n1, int n2, int n3, int nx, int ny, int k, char class_npb){
+static void zran3(void* pointer_z, int n1, int n2, int n3, int nx, int ny, int k){
 #ifdef __clang__
 	using custom_cast = double (*)[n2][n1];
 	custom_cast z = reinterpret_cast<custom_cast>(pointer_z);
@@ -1301,41 +1274,8 @@ static void zran3(void* pointer_z, int n1, int n2, int n3, int nx, int ny, int k
 	a1 = power(A, nx);
 	a2 = power(A, nx*ny);
 
-	/*
-	 * ---------------------------------------------------------------------
-	 * this parallel zero3 call is what establishes the NUMA first-touch
-	 * placement of the whole z (v) array: every element is written here
-	 * by the same thread/scheduling that will later work on it. keep this
-	 * unconditional (i.e. do it BEFORE any cache check) so that loading
-	 * the field from cache still results in the exact same first-touch
-	 * layout as a normal (non-cached) run.
-	 * ---------------------------------------------------------------------
-	 */
 	#pragma omp parallel
 		zero3(z, n1, n2, n3);
-
-	/* ------ try to load the (expensive to generate) random field from cache ------ */
-	bool zran3_cache_loaded = false;
-	char* cache_dir = std::getenv("NPB_MG_CACHE_DIR");
-	char cache_path[512] = {0};
-	size_t zcount = (size_t)n1 * (size_t)n2 * (size_t)n3;
-
-	if(cache_dir && strlen(cache_dir) > 0){
-		snprintf(cache_path, sizeof(cache_path), "%s/mg_zran3_%c_%d_%d_%d.bin", cache_dir, class_npb, n1, n2, n3);
-
-		FILE* f_z = fopen(cache_path, "rb");
-		if(f_z){
-			size_t read_z = fread(pointer_z, sizeof(double), zcount, f_z);
-			fclose(f_z);
-			if(read_z == zcount){
-				printf(" [CACHE] 成功从 '%s' 加载 Class %c 随机场！\n", cache_path, class_npb);
-				zran3_cache_loaded = true;
-			}
-		}
-	}
-
-	if(!zran3_cache_loaded){
-	printf(" [CACHE] 未找到有效缓存，开始进行原生 zran3 初始化...\n");
 
 	i = is1-2+nx*(is2-2+ny*(is3-2));
 
@@ -1443,25 +1383,6 @@ static void zran3(void* pointer_z, int n1, int n2, int n3, int nx, int ny, int k
 	for(i = MM-1; i >= m1; i--){
 		z[jg[1][i][3]][jg[1][i][2]][jg[1][i][1]] = +1.0;
 	}
-
-	if(cache_dir && strlen(cache_dir) > 0){
-		struct stat st = {0};
-		if(stat(cache_dir, &st) == -1){
-			printf(" [CACHE] 创建缓存目录: '%s'\n", cache_dir);
-			mkdir(cache_dir, 0755);
-		}
-
-		FILE* f_z = fopen(cache_path, "wb");
-		if(f_z){
-			fwrite(pointer_z, sizeof(double), zcount, f_z);
-			fclose(f_z);
-			printf(" [CACHE] 成功将随机场缓存导出至: '%s'\n", cache_path);
-		}else{
-			printf(" [警告] 导出缓存失败，请检查写入权限。\n");
-		}
-	}
-	} /* end of !zran3_cache_loaded */
-
 	#pragma omp parallel 
 	comm3(z, n1, n2, n3, k);
 }

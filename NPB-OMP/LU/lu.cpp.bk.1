@@ -258,38 +258,12 @@ int main(int argc, char* argv[]){
 	}else{
 		timeron=FALSE;
 	}
-
 	/*
 	 * ---------------------------------------------------------------------
 	 * read input data
 	 * ---------------------------------------------------------------------
 	 */
 	read_input();
-
-    char* env_niter = std::getenv("NPB_NITER");
-    if (env_niter && strlen(env_niter) > 0) {
-        int parsed_niter = std::atoi(env_niter);
-        if (parsed_niter > 0) {
-            // niter = parsed_niter;
-            itmax = parsed_niter;
-        }
-    }
-
-    // check timer on via environment variable
-    char* env_timeron = std::getenv("NPB_TIMERON");
-    if (env_timeron && strlen(env_timeron) > 0) {
-        int parsed_timeron = std::atoi(env_timeron);
-        if (parsed_timeron == 1) {
-            timeron = TRUE;
-        } else if (parsed_timeron == 0) {
-            timeron = FALSE;
-        }
-    }
-
-    printf(" Iterations: %4d\n", itmax);
-    printf(" Timeron: %s\n", timeron ? "TRUE" : "FALSE");
-
-
 	/*
 	 * ---------------------------------------------------------------------
 	 * set up domain sizes
@@ -348,30 +322,6 @@ int main(int argc, char* argv[]){
 	 * ---------------------------------------------------------------------
 	 */
 	ssor(itmax);
-
-	/*
-	 * ---------------------------------------------------------------------
-	 * more timers
-	 * ---------------------------------------------------------------------
-	 */
-	if(timeron){
-		for(i=1; i<=T_LAST; i++){
-			trecs[i]=timer_read(i);
-		}
-		tmax=maxtime;
-		if(tmax==0.0){tmax=1.0;}
-		printf("  SECTION     Time (secs)\n");
-		for(i=1; i<=T_LAST; i++){
-			printf("  %-8s:%9.3f  (%6.2f%%)\n",t_names[i],trecs[i],trecs[i]*100./tmax);
-			if(i==T_RHS){
-				t=trecs[T_RHSX]+trecs[T_RHSY]+trecs[T_RHSZ];
-				printf("     --> %8s:%9.3f  (%6.2f%%)\n", "sub-rhs",t,t*100./tmax);
-				t=trecs[i]-t;
-				printf("     --> %8s:%9.3f  (%6.2f%%)\n", "rest-rhs",t,t*100./tmax);
-			}
-		}
-	}
-
 	/*
 	 * ---------------------------------------------------------------------
 	 * compute the solution error
@@ -420,7 +370,28 @@ int main(int argc, char* argv[]){
 			(char*)CS5,
 			(char*)CS6,
 			(char*)"(none)");
-
+	/*
+	 * ---------------------------------------------------------------------
+	 * more timers
+	 * ---------------------------------------------------------------------
+	 */
+	if(timeron){
+		for(i=1; i<=T_LAST; i++){
+			trecs[i]=timer_read(i);
+		}
+		tmax=maxtime;
+		if(tmax==0.0){tmax=1.0;}
+		printf("  SECTION     Time (secs)\n");
+		for(i=1; i<=T_LAST; i++){
+			printf("  %-8s:%9.3f  (%6.2f%%)\n",t_names[i],trecs[i],trecs[i]*100./tmax);
+			if(i==T_RHS){
+				t=trecs[T_RHSX]+trecs[T_RHSY]+trecs[T_RHSZ];
+				printf("     --> %8s:%9.3f  (%6.2f%%)\n", "sub-rhs",t,t*100./tmax);
+				t=trecs[i]-t;
+				printf("     --> %8s:%9.3f  (%6.2f%%)\n", "rest-rhs",t,t*100./tmax);
+			}
+		}
+	}
 	return 0;
 }
 
