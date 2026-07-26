@@ -454,7 +454,7 @@ void compute_rhs(){
 	 * and the speed of sound. 
 	 * ---------------------------------------------------------------------
 	 */
-	#pragma omp for
+	#pragma omp for  // L1 
 	for(k=0; k<=grid_points[2]-1; k++){
 		for(j=0; j<=grid_points[1]-1; j++){
 			for(i=0; i<=grid_points[0]-1; i++){
@@ -485,7 +485,7 @@ void compute_rhs(){
 	 * including the boundary                   
 	 * ---------------------------------------------------------------------
 	 */
-	#pragma omp for
+	#pragma omp for  // L2
 	for(k=0; k<=grid_points[2]-1; k++){
 		for(j=0; j<=grid_points[1]-1; j++){
 			for(i=0; i<=grid_points[0]-1; i++){

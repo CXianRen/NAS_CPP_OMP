@@ -210,33 +210,9 @@ int main(int argc, char* argv[]){
 	}else{
 		timeron=FALSE;
 	}
-
-
-
-    // 动态检测 niter 环境变量输入
-    char* env_niter = std::getenv("NPB_NITER");
-    if (env_niter && strlen(env_niter) > 0) {
-        int parsed_niter = std::atoi(env_niter);
-        if (parsed_niter > 0) {
-            niter = parsed_niter;
-        }
-    }
-
-    // check timer on via environment variable
-    char* env_timeron = std::getenv("NPB_TIMERON");
-    if (env_timeron && strlen(env_timeron) > 0) {
-        int parsed_timeron = std::atoi(env_timeron);
-        if (parsed_timeron == 1) {
-            timeron = TRUE;
-        } else if (parsed_timeron == 0) {
-            timeron = FALSE;
-        }
-    }
-
 	printf("\n\n NAS Parallel Benchmarks 4.1 Parallel C++ version with OpenMP - BT Benchmark\n\n");
 	printf(" Size: %4dx%4dx%4d\n",grid_points[0],grid_points[1],grid_points[2]);
 	printf(" Iterations: %4d    dt: %10.6f\n",niter,dt);
-	printf(" Timeron: %s\n", timeron ? "TRUE" : "FALSE");
 	printf("\n");
 	if((grid_points[0]>IMAX)||(grid_points[1]>JMAX)||(grid_points[2]>KMAX)){
 		printf(" %d, %d, %d\n",grid_points[0],grid_points[1],grid_points[2]);
@@ -262,7 +238,6 @@ int main(int argc, char* argv[]){
 	}
 	for(i=1;i<=T_LAST;i++){timer_clear(i);}
 	timer_start(1);
-	hams_enable_moldability();
 	#pragma omp parallel firstprivate(niter) private(step)
 	{
 		for(step=1; step<=niter; step++){
@@ -273,39 +248,8 @@ int main(int argc, char* argv[]){
 			adi();
 		}
 	}
-	hams_disable_moldability();
 	timer_stop(1);
 	tmax=timer_read(1);
-
-/*
-	 * ---------------------------------------------------------------------
-	 * more timers
-	 * ---------------------------------------------------------------------
-	 */
-	if(timeron){
-		for(i=1; i<=T_LAST; i++){
-			trecs[i]=timer_read(i);
-		}
-		if(tmax==0.0){tmax=1.0;}
-		printf("  SECTION   Time (secs)\n");
-		for(i=1; i<=T_LAST; i++){
-			printf("  %-8s:%9.3f  (%6.2f%%)\n", 
-					t_names[i], trecs[i], trecs[i]*100./tmax);
-			if(i==T_RHS){
-				t=trecs[T_RHSX]+trecs[T_RHSY]+trecs[T_RHSZ];
-				printf("    --> %8s:%9.3f  (%6.2f%%)\n","sub-rhs",t,t*100./tmax);
-				t=trecs[T_RHS]-t;
-				printf("    --> %8s:%9.3f  (%6.2f%%)\n", "rest-rhs",t,t*100./tmax);
-			}else if(i==T_ZSOLVE){
-				t=trecs[T_ZSOLVE]-trecs[T_RDIS1]-trecs[T_RDIS2];
-				printf("    --> %8s:%9.3f  (%6.2f%%)\n", "sub-zsol",t,t*100./tmax);
-			}else if(i==T_RDIS2){
-				t=trecs[T_RDIS1]+trecs[T_RDIS2];
-				printf("    --> %8s:%9.3f  (%6.2f%%)\n","redist",t,t*100./tmax);
-			}
-		}
-	}
-
 	verify(niter, &class_npb, &verified);
 	n3=1.0*grid_points[0]*grid_points[1]*grid_points[2];
 	navg=(grid_points[0]+grid_points[1]+grid_points[2])/3.0;
@@ -339,7 +283,34 @@ int main(int argc, char* argv[]){
 			(char*)CS5,
 			(char*)CS6,
 			(char*)"(none)");
-	
+	/*
+	 * ---------------------------------------------------------------------
+	 * more timers
+	 * ---------------------------------------------------------------------
+	 */
+	if(timeron){
+		for(i=1; i<=T_LAST; i++){
+			trecs[i]=timer_read(i);
+		}
+		if(tmax==0.0){tmax=1.0;}
+		printf("  SECTION   Time (secs)\n");
+		for(i=1; i<=T_LAST; i++){
+			printf("  %-8s:%9.3f  (%6.2f%%)\n", 
+					t_names[i], trecs[i], trecs[i]*100./tmax);
+			if(i==T_RHS){
+				t=trecs[T_RHSX]+trecs[T_RHSY]+trecs[T_RHSZ];
+				printf("    --> %8s:%9.3f  (%6.2f%%)\n","sub-rhs",t,t*100./tmax);
+				t=trecs[T_RHS]-t;
+				printf("    --> %8s:%9.3f  (%6.2f%%)\n", "rest-rhs",t,t*100./tmax);
+			}else if(i==T_ZSOLVE){
+				t=trecs[T_ZSOLVE]-trecs[T_RDIS1]-trecs[T_RDIS2];
+				printf("    --> %8s:%9.3f  (%6.2f%%)\n", "sub-zsol",t,t*100./tmax);
+			}else if(i==T_RDIS2){
+				t=trecs[T_RDIS1]+trecs[T_RDIS2];
+				printf("    --> %8s:%9.3f  (%6.2f%%)\n","redist",t,t*100./tmax);
+			}
+		}
+	}
 	return 0;
 }
 
@@ -791,7 +762,7 @@ void compute_rhs(){
 	 * including the boundary                   
 	 * ---------------------------------------------------------------------
 	 */
-	#pragma omp for   // L2
+	#pragma omp for
 	for(k=0; k<=grid_points[2]-1; k++){
 		for(j=0; j<=grid_points[1]-1; j++){
 			for(i=0; i<=grid_points[0]-1; i++){
@@ -807,7 +778,7 @@ void compute_rhs(){
 	 * compute xi-direction fluxes 
 	 * ---------------------------------------------------------------------
 	 */
-	#pragma omp for  // L3
+	#pragma omp for
 	for(k=1; k<=grid_points[2]-2; k++){
 		for(j=1; j<=grid_points[1]-2; j++){
 			for(i=1; i<=grid_points[0]-2; i++){
@@ -908,7 +879,7 @@ void compute_rhs(){
 	 * compute eta-direction fluxes 
 	 * ---------------------------------------------------------------------
 	 */
-	#pragma omp for   // L4
+	#pragma omp for
 	for(k=1; k<=grid_points[2]-2; k++){
 		for(j=1; j<=grid_points[1]-2; j++){
 			for(i=1; i<=grid_points[0]-2; i++){
@@ -1013,7 +984,7 @@ void compute_rhs(){
 	 * compute zeta-direction fluxes 
 	 * ---------------------------------------------------------------------
 	 */
-	#pragma omp for   // L5
+	#pragma omp for
 	for(k=1; k<=grid_points[2]-2; k++){
 		for(j=1; j<=grid_points[1]-2; j++){
 			for(i=1; i<=grid_points[0]-2; i++){
@@ -1091,7 +1062,7 @@ void compute_rhs(){
 			}
 		}
 	}
-	#pragma omp for // L8
+	#pragma omp for
 	for(k=3; k<=grid_points[2]-4; k++){
 		for(j=1; j<=grid_points[1]-2; j++){
 			for(i=1; i<=grid_points[0]-2; i++){
@@ -2398,7 +2369,7 @@ void x_solve(){
 	 * determine a (labeled f) and n jacobians
 	 * ---------------------------------------------------------------------
 	 */
-	#pragma omp for     // L12 
+	#pragma omp for
 	for(k=1; k<=grid_points[2]-2; k++){
 		double fjac[PROBLEM_SIZE+1][5][5];
 		double njac[PROBLEM_SIZE+1][5][5];
@@ -2729,7 +2700,7 @@ void y_solve(){
 	 * determine a (labeled f) and n jacobians for cell c
 	 * ---------------------------------------------------------------------
 	 */
-	#pragma omp for  // L13
+	#pragma omp for
 	for(k=1; k<=grid_points[2]-2; k++){
 		double fjac[PROBLEM_SIZE+1][5][5];
 		double njac[PROBLEM_SIZE+1][5][5];
@@ -3062,7 +3033,7 @@ void z_solve(){
 	 * determine c (labeled f) and s jacobians
 	 * ---------------------------------------------------------------------
 	 */
-	#pragma omp for   // L14
+	#pragma omp for
 	for(j=1; j<=grid_points[1]-2; j++){
 		double fjac[PROBLEM_SIZE+1][5][5];
 		double njac[PROBLEM_SIZE+1][5][5];
