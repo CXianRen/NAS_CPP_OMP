@@ -347,7 +347,9 @@ int main(int argc, char* argv[]){
 	 * perform the SSOR iterations
 	 * ---------------------------------------------------------------------
 	 */
+	hams_enable_moldability();
 	ssor(itmax);
+	hams_disable_moldability();
 
 	/*
 	 * ---------------------------------------------------------------------

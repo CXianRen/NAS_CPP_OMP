@@ -276,6 +276,7 @@ int main(int argc, char **argv){
 	}
 
 	timer_start(T_TOTAL);
+	hams_enable_moldability();
 	if(timers_enabled==TRUE){timer_start(T_SETUP);}
 
 	compute_indexmap(twiddle, dims[0], dims[1], dims[2]);
@@ -339,6 +340,7 @@ int main(int argc, char **argv){
 			}
 		}
 	} /* end parallel */
+	hams_disable_moldability();
 	
 	verify(NX, NY, NZ, niter, &verified, &class_npb);
 
@@ -949,6 +951,41 @@ static void setup(){
 	}
 
 	niter = NITER_DEFAULT;
+	char* env_niter = std::getenv("NPB_NITER");
+	if(env_niter != NULL && std::strlen(env_niter) > 0){
+		int parsed_niter = std::atoi(env_niter);
+		if(parsed_niter > 0){
+#if defined(DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION)
+			if(parsed_niter <= NITER_DEFAULT){
+				niter = parsed_niter;
+			}else{
+				fprintf(stderr,
+						"Ignoring NPB_NITER=%d: statically allocated FT "
+						"supports at most %d iterations\n",
+						parsed_niter,
+						NITER_DEFAULT);
+			}
+#else
+			if(parsed_niter > NITER_DEFAULT){
+				dcomplex* resized_sums = (dcomplex*)realloc(
+						sums, sizeof(dcomplex)*(parsed_niter+1));
+				if(resized_sums == NULL){
+					fprintf(stderr,
+							"Unable to allocate checksum storage for %d "
+							"FT iterations\n",
+							parsed_niter);
+					exit(EXIT_FAILURE);
+				}
+				sums = resized_sums;
+			}
+			niter = parsed_niter;
+#endif
+		}else{
+			fprintf(stderr,
+					"Ignoring invalid NPB_NITER value: %s\n",
+					env_niter);
+		}
+	}
 
 	printf("\n\n NAS Parallel Benchmarks 4.1 Parallel C++ version with OpenMP - FT Benchmark\n\n");
 	printf(" Size                : %4dx%4dx%4d\n", NX, NY, NZ);

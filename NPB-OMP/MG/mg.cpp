@@ -341,6 +341,7 @@ int main(int argc, char *argv[]){
 		timer_clear(i);
 	}
 	timer_start(T_BENCH);
+	hams_enable_moldability();
 
 	#pragma omp parallel firstprivate(nit) private(it)
     {
@@ -392,6 +393,7 @@ int main(int argc, char *argv[]){
 		norm2u3(r,n1,n2,n3,&rnm2,&rnmu,nx[lt],ny[lt],nz[lt]);
 	} /* end parallel */
 
+	hams_disable_moldability();
 	timer_stop(T_BENCH);
 
 	t = timer_read(T_BENCH);    	
@@ -691,7 +693,7 @@ static void interp(void* pointer_z, int mm1, int mm2, int mm3, void* pointer_u, 
 			d3 = 1;
 			t3 = 0;
 		}
-		#pragma omp for
+		#pragma ba
 		for(i3 = d3; i3 <= mm3-1; i3++){
 			for(i2 = d2; i2 <= mm2-1; i2++){
 				for(i1 = d1; i1 <= mm1-1; i1++){
